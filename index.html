@@ -58,7 +58,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </style>
 </head><body>
 <div class="wrap">
-<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · 제조사별 2단계 선택 · 2026-10-29 20:10</small></h1>
+<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · 화살표 치수선 · 2026-10-29 20:40</small></h1>
 <div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
@@ -283,6 +283,15 @@ function calc(){
 }
 
 /* ---------- 주요 치수 (상판 좌표, 위가 0) ---------- */
+function arrowSegs(a,b,al){
+ const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<1)return [];
+ const u=[dx/len,dy/len],l=Math.min(al,len*0.35),w=l*0.35,out=[];
+ for(const [p,d] of [[a,1],[b,-1]]){
+  const bx=p[0]+d*u[0]*l,by=p[1]+d*u[1]*l;
+  out.push([p,[bx-u[1]*w,by+u[0]*w]],[p,[bx+u[1]*w,by-u[0]*w]]);
+ }
+ return out;
+}
 function dimsFor(c,withLabel){
  const f=v=>String(+(+v).toFixed(1)),L=[],T=[],B=c.items.map(it=>it.ok?bbox(it.pts):null);
  const add=(a,b,t,dir,fr)=>{fr=fr||.5;L.push([a,b]);T.push({x:a[0]+(b[0]-a[0])*fr,y:a[1]+(b[1]-a[1])*fr,t:f(fr===.5?t:Math.round(t*2)/2),dir});};
@@ -324,7 +333,9 @@ function draw(){
  });
  if($('showDim').checked){
   const d=dimsFor(c,false);
-  d.L.forEach(l=>{o+=`<line class="sv-ln" x1="${X(l[0][0])}" y1="${Y(l[0][1])}" x2="${X(l[1][0])}" y2="${Y(l[1][1])}"/>`;});
+  const al=Math.max(W,H)/45;
+  d.L.forEach(l=>{o+=`<line class="sv-ln" x1="${X(l[0][0])}" y1="${Y(l[0][1])}" x2="${X(l[1][0])}" y2="${Y(l[1][1])}"/>`;
+   arrowSegs(l[0],l[1],al).forEach(q=>{o+=`<line class="sv-ln" x1="${X(q[0][0])}" y1="${Y(q[0][1])}" x2="${X(q[1][0])}" y2="${Y(q[1][1])}"/>`;});});
   d.T.forEach(t=>{o+=t.dir==='h'?`<text class="sv-dm" x="${X(t.x)}" y="${Y(t.y)-6}" text-anchor="middle">${t.t}</text>`:`<text class="sv-dm" x="${X(t.x)+6}" y="${Y(t.y)+7}">${t.t}</text>`;});
  }
  o+=`<text class="sv-dim" x="${mx+pw/2}" y="${my+ph+36}" text-anchor="middle">${W}</text>`;
@@ -354,7 +365,8 @@ function makeDxf(c){
  }
  if(c.dim){
   const d=dimsFor(c,true),fs=Math.max(6,c.W/90);
-  d.L.forEach(l=>line('DIM',[l[0][0],Y(l[0][1])],[l[1][0],Y(l[1][1])]));
+  d.L.forEach(l=>{line('DIM',[l[0][0],Y(l[0][1])],[l[1][0],Y(l[1][1])]);
+   arrowSegs(l[0],l[1],Math.max(c.W,c.H)/60).forEach(q=>line('DIM',[q[0][0],Y(q[0][1])],[q[1][0],Y(q[1][1])]));});
   d.T.forEach(t=>{let x=t.x,y=t.y;if(t.dir==='h')y-=fs*0.5;else if(t.dir==='v')x+=fs*0.4;else{y+=fs*1.6;x-=fs*t.t.length*0.3;}
    if(t.dir==='h')x-=fs*t.t.length*0.3;
    g(0,'TEXT');g(8,'DIM');g(62,7);g(10,f(x));g(20,f(Y(y)));g(30,0);g(40,f(fs));g(1,t.dir==='b'?t.t.replace(/Ø/g,'dia '):t.t);});
@@ -377,7 +389,8 @@ function makePdf(c){
  if(c.dim){
   const d=dimsFor(c,false),sz=Math.max(7,Math.round(fz*0.5));
   s+='0.3 w 0.7 0.3 0.1 RG\n';
-  d.L.forEach(l=>{s+=`${X(l[0][0])} ${Y(l[0][1])} m ${X(l[1][0])} ${Y(l[1][1])} l S\n`;});
+  d.L.forEach(l=>{s+=`${X(l[0][0])} ${Y(l[0][1])} m ${X(l[1][0])} ${Y(l[1][1])} l S\n`;
+   arrowSegs(l[0],l[1],Math.max(c.W,c.H)/60).forEach(q=>{s+=`${X(q[0][0])} ${Y(q[0][1])} m ${X(q[1][0])} ${Y(q[1][1])} l S\n`;});});
   s+='0 G 0.8 w\n';
   d.T.forEach(t=>{const x=(m+t.x)*k,y=(m+c.H-t.y)*k;
    s+=t.dir==='h'?T((x-sz*0.9).toFixed(2),(y+2).toFixed(2),t.t,sz):T((x+3).toFixed(2),(y-sz*0.3).toFixed(2),t.t,sz);});

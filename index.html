@@ -30,9 +30,25 @@ button.big:disabled{opacity:.5}
 svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);border-radius:14px;display:block}
 .sv-panel{fill:var(--card);stroke:var(--title);stroke-width:3}
 .sv-hole{fill:var(--hole);stroke:var(--title);stroke-width:3}
+.sv-hole.cur{stroke:var(--dot);stroke-width:5}
+.sv-idx{fill:var(--ink);font-size:34px;font-weight:bold}
 .sv-dot{fill:var(--dot)}
 .sv-dim{fill:var(--ink);font-size:31px}
 .sv-lab{fill:var(--warn);font-size:25px}
+.cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:10px}
+.cmp figure{margin:0;min-width:0}
+.cmp figcaption{font-size:16px;margin-bottom:6px;color:var(--title)}
+.imgbox{border:1px solid var(--line);border-radius:14px;background:var(--field);min-height:200px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.imgbox img{max-width:100%;max-height:420px;display:block;}
+.imgbox .empty{font-size:16px;color:var(--note-ink);padding:16px;text-align:center}
+.filebtn{display:block;text-align:center;font-size:21px;padding:14px;border-radius:14px;background:var(--main);color:var(--on-main);cursor:pointer;margin-top:8px}
+.filebtn input{position:absolute;width:1px;height:1px;opacity:0}
+.filebtn:focus-within{outline:2px solid var(--title);outline-offset:2px}
+.mini{display:flex;gap:8px;margin-top:8px}
+.mini button{flex:1;font-size:18px;padding:10px 4px;border:1.5px solid var(--line);border-radius:12px;background:var(--soft);color:var(--ink)}
+.wrapt{flex-wrap:wrap}
+.wrapt button{flex:0 0 auto;min-width:96px}
+.curlab{font-size:18px;margin:10px 0 2px;color:var(--title);font-weight:bold}
 .num{display:inline-block;background:var(--main);color:var(--on-main);border-radius:50%;width:34px;height:34px;text-align:center;line-height:34px;margin-right:8px;font-weight:bold}
 .small{font-size:15px;color:var(--warn)}
 .ink{color:var(--ink)}
@@ -41,7 +57,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </head><body>
 <div class="wrap">
 <h1>상판 도면 만들기</h1>
-<div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 5번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
+<div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
 <div class="row" style="gap:6px">
@@ -50,7 +66,11 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
  <label for="H" style="flex:none">세로</label><input id="H" type="number" inputmode="decimal" value="800" style="width:110px">
  <span style="width:auto">mm</span></div></div>
 
-<div class="card"><h2><span class="num">2</span>구멍 종류</h2>
+<div class="card"><h2><span class="num">2</span>구멍 개수와 종류</h2>
+<div class="small ink">구멍이 여러 개면 추가해서 구멍마다 종류와 위치를 따로 정합니다.</div>
+<div class="tabs wrapt" id="holeTabs"></div>
+<div class="mini"><button id="addHole" type="button">2-4 구멍 추가</button><button id="delHole" type="button">2-5 이 구멍 지우기</button></div>
+<div id="curLab" class="curlab"></div>
 <div class="tabs" id="kinds">
  <button data-k="round">2-1 원형</button>
  <button data-k="rect">2-2 사각형</button>
@@ -80,7 +100,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
  <div class="small">모델 치수는 도면에서 읽은 값이며 실물 확인이 필요합니다.</div></div>
 </div>
 
-<div class="card"><h2><span class="num">3</span>구멍 위치</h2>
+<div class="card"><h2><span class="num">3</span><span id="h3">구멍 위치</span></h2>
 <div id="f-ref">
  <div style="margin-bottom:4px">기준점 (이 점을 기준으로 위치를 잡습니다)</div>
  <div class="tabs" id="refs">
@@ -102,82 +122,134 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 <svg id="sv" viewBox="0 0 900 520" role="img" aria-label="상판과 구멍 미리보기"></svg>
 <div id="msg" class="small" style="margin-top:6px"></div></div>
 
-<div class="card"><h2><span class="num">5</span>파일 받기</h2>
+<div class="card"><h2><span class="num">5</span>참고 도면 확인</h2>
+<div class="small ink">제조사에서 받은 타공 도면 사진을 넣으면, 만든 구멍 모양과 나란히 놓고 비교할 수 있습니다. 사진은 이 기기 안에서만 보이고 어디에도 올라가지 않습니다.</div>
+<label class="filebtn" id="fileLab">5-1 도면 사진 넣기<input type="file" id="refImg" accept="image/*"></label>
+<div class="cmp">
+ <figure><figcaption>제조사 도면 사진</figcaption>
+  <div class="imgbox"><img id="refView" alt="제조사 타공 도면" hidden><div class="empty" id="refEmpty">아직 넣은 사진이 없습니다.</div></div>
+  <div class="mini"><button id="rotBtn" type="button">5-2 사진 돌리기</button><button id="clrBtn" type="button">5-3 사진 지우기</button></div></figure>
+ <figure><figcaption id="zoomCap">지금 만든 구멍 (확대)</figcaption>
+  <div class="imgbox"><svg id="sv2" viewBox="0 0 600 600" role="img" aria-label="만든 구멍 확대 그림" style="border:0;background:transparent"></svg></div></figure>
+</div>
+<div class="small ink" style="margin-top:8px">모양과 숫자가 다르면 위의 2번과 3번 숫자를 고쳐 맞춰 주십시오.</div></div>
+
+<div class="card"><h2><span class="num">6</span>파일 받기</h2>
 <button class="big" id="bDxf">DXF 파일 받기 (오토캐드, VCarve용)</button>
 <button class="big gray" id="bPdf">PDF 받기 (거래처 전달용)</button>
 <div class="status" id="status">DXF 좌표 기준은 상판 왼쪽 아래 모서리가 0,0이며 단위는 mm입니다.</div></div>
 </div>
 <script>
 const $=id=>document.getElementById(id);
-let kind='ros',pos='center',ref='c',dir='left';
 const MODELS=[[330,135,108],[310,135,110]];
+const MAXH=20;
+const newHole=()=>({kind:'ros',dia:'260',hw:'143',hh:'61',rd:'330',tw:'135',th:'108',model:'0',dir:'left',ref:'c',pos:'center',hx:'600',hy:'400'});
+let holes=[newHole()],cur=0;
+const HC=()=>holes[cur];
+
+/* ---------- 입력칸 <-> 구멍 데이터 ---------- */
+function readUI(){
+ const h=HC();
+ h.dia=$('dia').value;h.hw=$('hw').value;h.hh=$('hh').value;
+ h.rd=$('rd').value;h.tw=$('tw').value;h.th=$('th').value;h.model=$('model').value;
+ h.hx=$('hx').value;h.hy=$('hy').value;
+}
+function writeUI(){
+ const h=HC();
+ $('dia').value=h.dia;$('hw').value=h.hw;$('hh').value=h.hh;
+ $('rd').value=h.rd;$('tw').value=h.tw;$('th').value=h.th;$('model').value=h.model;
+ $('hx').value=h.hx;$('hy').value=h.hy;
+}
 
 /* ---------- 계산: 화면 좌표(왼쪽 위가 0,0, 아래로 +) ---------- */
-function calc(){
- const W=+$('W').value,H=+$('H').value;
- const c={W,H,ok:false,pts:null,ents:null,ref:null,label:'',lx:0,ly:0,name:kind};
- if(!(W>0&&H>0))return c;
- if(kind==='ros'){
-  const D=+$('rd').value,tw=+$('tw').value,th=+$('th').value,R=D/2;
-  if(!(D>0&&tw>0&&th>0&&th<D))return c;
-  const dv={left:[-1,0],right:[1,0],up:[0,-1],down:[0,1]}[dir],pv=[-dv[1],dv[0]];
+function calcHole(h,W,H){
+ const bad=why=>({ok:false,why});
+ if(h.kind==='ros'){
+  const D=+h.rd,tw=+h.tw,th=+h.th,R=D/2;
+  if(!(D>0&&tw>0&&th>0&&th<D))return bad('숫자를 확인해 주세요');
+  const dv={left:[-1,0],right:[1,0],up:[0,-1],down:[0,1]}[h.dir],pv=[-dv[1],dv[0]];
   let px,py;
-  if(pos==='center'){px=W/2;py=H/2;}else{px=+$('hx').value;py=+$('hy').value;}
-  const tabIsA=(dir==='left'||dir==='up');
+  if(h.pos==='center'){px=W/2;py=H/2;}else{px=+h.hx;py=+h.hy;}
+  const tabIsA=(h.dir==='left'||h.dir==='up');
   let off=0;
-  if(ref==='a')off=tabIsA?(R+tw):-R;
-  if(ref==='b')off=tabIsA?-R:(R+tw);
+  if(h.ref==='a')off=tabIsA?(R+tw):-R;
+  if(h.ref==='b')off=tabIsA?-R:(R+tw);
   const cx=px-dv[0]*off,cy=py-dv[1]*off;
   const dx=Math.sqrt(R*R-(th/2)*(th/2)),ph0=Math.acos(dx/R);
   const P=(a,b)=>[cx+dv[0]*a+pv[0]*b,cy+dv[1]*a+pv[1]*b];
   const pts=[P(R+tw,th/2),P(dx,th/2)];
   for(let i=0;i<=120;i++){const f=ph0+(2*Math.PI-2*ph0)*i/120;pts.push(P(R*Math.cos(f),R*Math.sin(f)));}
   pts.push(P(dx,-th/2),P(R+tw,-th/2));
-  if(!pts.every(p=>p[0]>=-0.01&&p[0]<=W+0.01&&p[1]>=-0.01&&p[1]<=H+0.01))return c;
-  // DXF용 도형 (화면 좌표 기준 선분과 호)
-  const a=Math.atan2(-dv[1],dv[0])*180/Math.PI; // y를 뒤집은 방향각
-  c.ents=[
-   {t:'L',a:P(R+tw,th/2),b:P(R+tw,-th/2)},
-   {t:'L',a:P(R+tw,th/2),b:P(dx,th/2)},
-   {t:'L',a:P(R+tw,-th/2),b:P(dx,-th/2)},
-   {t:'A',c:[cx,cy],r:R,a0:a+ph0*180/Math.PI,a1:a+360-ph0*180/Math.PI}];
-  c.pts=pts;c.ref=[px,py];c.label='Ø'+D+' / '+tw+' x '+th;c.lx=cx;c.ly=cy+R;
-  c.pdfLabel='dia '+D+' / tab '+tw+' x '+th;c.ok=true;return c;
+  if(!pts.every(p=>p[0]>=-0.01&&p[0]<=W+0.01&&p[1]>=-0.01&&p[1]<=H+0.01))return bad('상판 밖으로 나갑니다');
+  const a=Math.atan2(-dv[1],dv[0])*180/Math.PI;
+  return {ok:true,kind:'ros',pts,ref:[px,py],man:[px,py],cen:[cx,cy],
+   label:'Ø'+D+' / '+tw+' x '+th,pdfLabel:'dia '+D+' / tab '+tw+' x '+th,lx:cx,ly:cy+R,
+   ents:[
+    {t:'L',a:P(R+tw,th/2),b:P(R+tw,-th/2)},
+    {t:'L',a:P(R+tw,th/2),b:P(dx,th/2)},
+    {t:'L',a:P(R+tw,-th/2),b:P(dx,-th/2)},
+    {t:'A',c:[cx,cy],r:R,a0:a+ph0*180/Math.PI,a1:a+360-ph0*180/Math.PI}]};
  }
  let hw,hh;
- if(kind==='round'){hw=hh=+$('dia').value;}else{hw=+$('hw').value;hh=+$('hh').value;}
- if(!(hw>0&&hh>0))return c;
+ if(h.kind==='round'){hw=hh=+h.dia;}else{hw=+h.hw;hh=+h.hh;}
+ if(!(hw>0&&hh>0))return bad('숫자를 확인해 주세요');
  let hx,hy;
- if(pos==='center'){hx=(W-hw)/2;hy=(H-hh)/2;}else{hx=+$('hx').value;hy=+$('hy').value;}
- if(!(hx>=0&&hy>=0&&hx+hw<=W&&hy+hh<=H))return c;
- if(kind==='round'){
+ if(h.pos==='center'){hx=(W-hw)/2;hy=(H-hh)/2;}else{hx=+h.hx;hy=+h.hy;}
+ if(!(hx>=0&&hy>=0&&hx+hw<=W&&hy+hh<=H))return bad('상판 밖으로 나갑니다');
+ const r={ok:true,kind:h.kind,man:[hx,hy],lx:hx+hw/2,ly:hy+hh,cen:[hx+hw/2,hy+hh/2]};
+ if(h.kind==='round'){
   const cx=hx+hw/2,cy=hy+hh/2,pts=[];
   for(let i=0;i<120;i++){const f=2*Math.PI*i/120;pts.push([cx+hw/2*Math.cos(f),cy+hw/2*Math.sin(f)]);}
-  c.pts=pts;c.ents=[{t:'C',c:[cx,cy],r:hw/2}];c.label='Ø'+hw;c.pdfLabel='dia '+hw;
+  r.pts=pts;r.ents=[{t:'C',c:[cx,cy],r:hw/2}];r.label='Ø'+hw;r.pdfLabel='dia '+hw;
  }else{
   const pts=[[hx,hy],[hx+hw,hy],[hx+hw,hy+hh],[hx,hy+hh]];
-  c.pts=pts;c.ents=pts.map((p,i)=>({t:'L',a:p,b:pts[(i+1)%4]}));c.label=hw+' x '+hh;c.pdfLabel=hw+' x '+hh;
+  r.pts=pts;r.ents=pts.map((p,i)=>({t:'L',a:p,b:pts[(i+1)%4]}));r.label=hw+' x '+hh;r.pdfLabel=hw+' x '+hh;
  }
- c.lx=hx+hw/2;c.ly=hy+hh;c.ok=true;return c;
+ return r;
+}
+/* 두 구멍이 겹치는지 */
+function segX(a,b,c,d){const o=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);return o(a,b,c)*o(a,b,d)<0&&o(c,d,a)*o(c,d,b)<0;}
+function inPoly(p,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
+function bbox(pts){const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);return [Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];}
+function overlap(A,B){
+ const a=bbox(A),b=bbox(B);
+ if(a[2]<b[0]||b[2]<a[0]||a[3]<b[1]||b[3]<a[1])return false;
+ for(let i=0;i<A.length;i++)for(let j=0;j<B.length;j++)if(segX(A[i],A[(i+1)%A.length],B[j],B[(j+1)%B.length]))return true;
+ return inPoly(A[0],B)||inPoly(B[0],A);
+}
+function calc(){
+ const W=+$('W').value,H=+$('H').value;
+ const c={W,H,items:[],ok:false,msg:''};
+ if(!(W>0&&H>0)){c.msg='상판 가로와 세로를 넣어 주십시오.';return c;}
+ c.items=holes.map(h=>calcHole(h,W,H));
+ const m=[];
+ c.items.forEach((it,i)=>{if(!it.ok)m.push((i+1)+'번 구멍: '+it.why);});
+ for(let i=0;i<c.items.length;i++)for(let j=i+1;j<c.items.length;j++)
+  if(c.items[i].ok&&c.items[j].ok&&overlap(c.items[i].pts,c.items[j].pts))m.push((i+1)+'번 구멍과 '+(j+1)+'번 구멍이 겹칩니다');
+ c.msg=m.join(' / ');c.ok=m.length===0;
+ return c;
 }
 
 /* ---------- 미리보기 ---------- */
 function draw(){
  const c=calc(),W=c.W,H=c.H;
- if(!(W>0&&H>0)){$('sv').innerHTML='';$('msg').textContent='상판 가로와 세로를 넣어 주십시오.';return;}
+ if(!(W>0&&H>0)){$('sv').innerHTML='';draw2(c);$('msg').textContent=c.msg;$('bDxf').disabled=$('bPdf').disabled=true;return;}
  const mx=80,my=60,aw=740,ah=380,s=Math.min(aw/W,ah/H),pw=W*s,ph=H*s;
  let o=`<rect class="sv-panel" x="${mx}" y="${my}" width="${pw}" height="${ph}"/>`;
- if(c.ok){
-  const X=v=>mx+v*s,Y=v=>my+v*s;
-  o+=`<polygon class="sv-hole" points="${c.pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')}"/>`;
-  if(kind==='ros')o+=`<circle class="sv-dot" cx="${X(c.ref[0])}" cy="${Y(c.ref[1])}" r="7"/>`;
-  o+=`<text class="sv-lab" x="${X(c.lx)}" y="${Y(c.ly)+26}" text-anchor="middle">${c.label}</text>`;
- }
+ const X=v=>mx+v*s,Y=v=>my+v*s,many=c.items.length>1;
+ c.items.forEach((it,i)=>{
+  if(!it.ok)return;
+  o+=`<polygon class="sv-hole${i===cur?' cur':''}" points="${it.pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')}"/>`;
+  if(it.kind==='ros')o+=`<circle class="sv-dot" cx="${X(it.ref[0])}" cy="${Y(it.ref[1])}" r="7"/>`;
+  if(many)o+=`<text class="sv-idx" x="${X(it.cen[0])}" y="${Y(it.cen[1])-(it.kind==='ros'?14:-10)}" text-anchor="middle">${i+1}</text>`;
+  else o+=`<text class="sv-lab" x="${X(it.lx)}" y="${Y(it.ly)+26}" text-anchor="middle">${it.label}</text>`;
+ });
  o+=`<text class="sv-dim" x="${mx+pw/2}" y="${my+ph+36}" text-anchor="middle">${W}</text>`;
  o+=`<text class="sv-dim" x="${mx-12}" y="${my+ph/2}" text-anchor="end">${H}</text>`;
- $('msg').textContent=c.ok?'':'구멍이 상판 밖으로 나가거나 숫자가 맞지 않습니다. 확인해 주세요.';
  $('sv').innerHTML=o;
+ $('msg').textContent=c.msg;
  $('bDxf').disabled=$('bPdf').disabled=!c.ok;
+ draw2(c);
 }
 
 /* ---------- DXF (R12 ASCII, 단위 mm, 왼쪽 아래가 0,0) ---------- */
@@ -192,7 +264,7 @@ function makeDxf(c){
  const line=(l,a,b)=>{g(0,'LINE');g(8,l);g(62,7);g(10,f(a[0]));g(20,f(a[1]));g(30,0);g(11,f(b[0]));g(21,f(b[1]));g(31,0);};
  const W=c.W,H=c.H;
  [[0,0],[W,0],[W,H],[0,H]].forEach((p,i,a)=>line('OUTLINE',p,a[(i+1)%4]));
- for(const e of c.ents){
+ for(const it of c.items)for(const e of it.ents){
   if(e.t==='L')line('HOLE',[e.a[0],Y(e.a[1])],[e.b[0],Y(e.b[1])]);
   if(e.t==='C'){g(0,'CIRCLE');g(8,'HOLE');g(62,7);g(10,f(e.c[0]));g(20,f(Y(e.c[1])));g(30,0);g(40,f(e.r));}
   if(e.t==='A'){const n=a=>((a%360)+360)%360;g(0,'ARC');g(8,'HOLE');g(62,7);g(10,f(e.c[0]));g(20,f(Y(e.c[1])));g(30,0);g(40,f(e.r));g(50,f(n(e.a0)));g(51,f(n(e.a1)));}
@@ -201,36 +273,21 @@ function makeDxf(c){
  return o.join('\r\n')+'\r\n';
 }
 
-/* ---------- ZIP (압축 없이 담기) ---------- */
-const CRC=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
-function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
-function makeZip(name,text){
- const enc=new TextEncoder(),nb=enc.encode(name),d=enc.encode(text),crc=crc32(d);
- const now=new Date(),t=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1),dt=((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();
- const lh=new Uint8Array(30+nb.length),lv=new DataView(lh.buffer);
- lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0,true);lv.setUint16(8,0,true);lv.setUint16(10,t,true);lv.setUint16(12,dt,true);
- lv.setUint32(14,crc,true);lv.setUint32(18,d.length,true);lv.setUint32(22,d.length,true);lv.setUint16(26,nb.length,true);lv.setUint16(28,0,true);lh.set(nb,30);
- const ch=new Uint8Array(46+nb.length),cv=new DataView(ch.buffer);
- cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0,true);cv.setUint16(10,0,true);cv.setUint16(12,t,true);cv.setUint16(14,dt,true);
- cv.setUint32(16,crc,true);cv.setUint32(20,d.length,true);cv.setUint32(24,d.length,true);cv.setUint16(28,nb.length,true);cv.setUint32(42,0,true);ch.set(nb,46);
- const eo=new Uint8Array(22),ev=new DataView(eo.buffer);
- ev.setUint32(0,0x06054b50,true);ev.setUint16(8,1,true);ev.setUint16(10,1,true);ev.setUint32(12,ch.length,true);ev.setUint32(16,lh.length+d.length,true);
- const out=new Uint8Array(lh.length+d.length+ch.length+eo.length);
- out.set(lh,0);out.set(d,lh.length);out.set(ch,lh.length+d.length);out.set(eo,lh.length+d.length+ch.length);
- return out;
-}
-
 /* ---------- PDF (실제 크기 mm, 영문 숫자 표기) ---------- */
 function makePdf(c){
  const k=72/25.4,m=18,pw=(c.W+2*m)*k,ph=(c.H+2*m)*k,fz=Math.max(12,Math.round(pw/45));
  const X=x=>((m+x)*k).toFixed(2),Y=y=>((m+c.H-y)*k).toFixed(2);
  let s='0.8 w\n';
  s+=`${X(0)} ${Y(c.H)} ${(c.W*k).toFixed(2)} ${(c.H*k).toFixed(2)} re S\n`;
- s+=c.pts.map((p,i)=>`${X(p[0])} ${Y(p[1])} ${i?'l':'m'}`).join('\n')+'\nh S\n';
  const T=(x,y,t,sz)=>`BT /F1 ${sz} Tf ${x} ${y} Td (${t}) Tj ET\n`;
+ c.items.forEach((it,i)=>{
+  s+=it.pts.map((p,j)=>`${X(p[0])} ${Y(p[1])} ${j?'l':'m'}`).join('\n')+'\nh S\n';
+  if(c.items.length>1)s+=T((((m+it.cen[0])*k)-fz*0.3).toFixed(2),(((m+c.H-it.cen[1])*k)-fz*0.3).toFixed(2),String(i+1),fz);
+ });
  s+=T(((m+c.W/2)*k-fz).toFixed(2),((m*0.4)*k).toFixed(2),String(c.W),fz);
  s+=T(((m*0.05)*k).toFixed(2),((m+c.H/2)*k).toFixed(2),String(c.H),fz);
- s+=T((m*k).toFixed(2),((m+c.H)*k+fz*0.3).toFixed(2),'Hole: '+c.pdfLabel+'  /  Origin: bottom-left, unit mm',Math.round(fz*0.7));
+ const note=c.items.map((it,i)=>(c.items.length>1?'#'+(i+1)+' ':'Hole: ')+it.pdfLabel).join('  |  ')+'  /  Origin: bottom-left, unit mm';
+ s+=T((m*k).toFixed(2),((m+c.H)*k+fz*0.3).toFixed(2),note,Math.round(fz*0.6));
  const objs=[
   '<< /Type /Catalog /Pages 2 0 R >>',
   '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -246,7 +303,7 @@ function makePdf(c){
 }
 
 /* ---------- 받기 ---------- */
-function fname(c,ext){return `top_${c.W}x${c.H}_${c.name}.${ext}`;}
+function fname(c,ext){return `top_${c.W}x${c.H}_${c.items.length>1?c.items.length+'holes':holes[0].kind}.${ext}`;}
 function save(filename,data){
  const st=$('status');
  try{
@@ -260,31 +317,102 @@ function save(filename,data){
 $('bDxf').onclick=()=>{const c=calc();if(!c.ok)return;save(fname(c,'dxf'),makeDxf(c));};
 $('bPdf').onclick=()=>{const c=calc();if(!c.ok)return;save(fname(c,'pdf'),makePdf(c));};
 
+/* ---------- 구멍 확대 그림 + 참고 사진 (지금 고른 구멍) ---------- */
+function draw2(c){
+ const sv=$('sv2'),it=c.items&&c.items[cur];
+ $('zoomCap').textContent=holes.length>1?'구멍 '+(cur+1)+' (확대)':'지금 만든 구멍 (확대)';
+ if(!it||!it.ok){sv.innerHTML='';return;}
+ const [x0,y0,x1,y1]=bbox(it.pts);
+ const bw=x1-x0,bh=y1-y0,m=110,s=Math.min((600-2*m)/bw,(600-2*m)/bh);
+ const ox=(600-bw*s)/2,oy=(600-bh*s)/2;
+ const X=v=>(ox+(v-x0)*s).toFixed(1),Y=v=>(oy+(v-y0)*s).toFixed(1);
+ let o=`<polygon class="sv-hole" points="${it.pts.map(p=>X(p[0])+','+Y(p[1])).join(' ')}"/>`;
+ o+=`<line x1="${X(x0)}" y1="${(oy+bh*s+28).toFixed(1)}" x2="${X(x1)}" y2="${(oy+bh*s+28).toFixed(1)}" stroke="currentColor" style="color:var(--title)" stroke-width="2"/>`;
+ o+=`<text class="sv-dim" style="font-size:26px" x="${(ox+bw*s/2).toFixed(1)}" y="${(oy+bh*s+58).toFixed(1)}" text-anchor="middle">${Math.round(bw)}</text>`;
+ o+=`<line x1="${(ox-28).toFixed(1)}" y1="${Y(y0)}" x2="${(ox-28).toFixed(1)}" y2="${Y(y1)}" stroke="currentColor" style="color:var(--title)" stroke-width="2"/>`;
+ o+=`<text class="sv-dim" style="font-size:26px" x="${(ox-38).toFixed(1)}" y="${(oy+bh*s/2).toFixed(1)}" text-anchor="end">${Math.round(bh)}</text>`;
+ o+=`<text class="sv-lab" style="font-size:24px" x="300" y="40" text-anchor="middle">${it.label}</text>`;
+ sv.innerHTML=o;
+}
+let rot=0,refUrl=null;
+function setRef(file){
+ if(refUrl){URL.revokeObjectURL(refUrl);refUrl=null;}
+ const im=$('refView');
+ rot=0;im.style.transform='';im.parentElement.style.minHeight='';
+ if(!file){im.hidden=true;im.removeAttribute('src');$('refEmpty').hidden=false;return;}
+ refUrl=URL.createObjectURL(file);im.src=refUrl;im.hidden=false;$('refEmpty').hidden=true;
+}
+$('refImg').addEventListener('change',e=>setRef(e.target.files[0]||null));
+$('clrBtn').onclick=()=>{$('refImg').value='';setRef(null);};
+function applyRot(){
+ const im=$('refView'),box=im.parentElement;
+ im.style.transform='';box.style.minHeight='';
+ if(rot%180===0){if(rot)im.style.transform='rotate(180deg)';return;}
+ const w=im.clientWidth,h=im.clientHeight,k=Math.min(1,(box.clientWidth-16)/h);
+ im.style.transform='rotate('+rot+'deg) scale('+k+')';
+ box.style.minHeight=Math.max(200,w*k+24)+'px';
+}
+$('rotBtn').onclick=()=>{rot=(rot+90)%360;applyRot();};
+
 /* ---------- 화면 ---------- */
+function renderTabs(){
+ const t=$('holeTabs');t.innerHTML='';
+ holes.forEach((h,i)=>{
+  const b=document.createElement('button');b.type='button';b.textContent='구멍 '+(i+1);
+  if(i===cur)b.className='on';
+  b.onclick=()=>{readUI();cur=i;show();};
+  t.appendChild(b);
+ });
+ $('delHole').disabled=holes.length<=1;
+ $('addHole').disabled=holes.length>=MAXH;
+ $('curLab').textContent=holes.length>1?'지금 고르는 구멍: 구멍 '+(cur+1)+' (전체 '+holes.length+'개)':'';
+ $('h3').textContent=holes.length>1?'구멍 위치 (구멍 '+(cur+1)+')':'구멍 위치';
+}
 function show(){
- ['round','rect','ros'].forEach(k=>$('f-'+k).hidden=(k!==kind));
- $('f-ref').hidden=(kind!=='ros');
- $('f-manual').hidden=(pos!=='manual');
- $('f-center').hidden=(pos!=='center');
- const r=kind==='ros';
- $('lx').textContent=r?'상판 왼쪽 끝에서 기준점까지':'상판 왼쪽 끝에서';
- $('ly').textContent=r?'상판 위쪽 끝에서 기준점까지':'상판 위쪽 끝에서';
+ const h=HC();
+ writeUI();renderTabs();
+ ['round','rect','ros'].forEach(k=>$('f-'+k).hidden=(k!==h.kind));
+ $('f-ref').hidden=(h.kind!=='ros');
+ $('f-manual').hidden=(h.pos!=='manual');
+ $('f-center').hidden=(h.pos!=='center');
+ const r=h.kind==='ros';
+ $('lx').textContent=r?'상판 왼쪽 끝에서 기준점까지':'상판 왼쪽 끝에서 구멍 왼쪽 끝까지';
+ $('ly').textContent=r?'상판 위쪽 끝에서 기준점까지':'상판 위쪽 끝에서 구멍 위쪽 끝까지';
  $('f-center').textContent=r?'정중앙은 기준점이 상판의 정가운데에 옵니다.':'정중앙은 가로, 세로 모두 가운데로 자동 계산됩니다.';
- const vert=(dir==='up'||dir==='down');
+ const vert=(h.dir==='up'||h.dir==='down');
  $('ra').textContent='3-1 '+(vert?'위쪽 끝':'왼쪽 끝');
  $('rb').textContent='3-2 '+(vert?'아래쪽 끝':'오른쪽 끝');
- document.querySelectorAll('#dirs button').forEach(b=>b.classList.toggle('on',b.dataset.d===dir));
- document.querySelectorAll('#kinds button').forEach(b=>b.classList.toggle('on',b.dataset.k===kind));
- document.querySelectorAll('#poss button').forEach(b=>b.classList.toggle('on',b.dataset.p===pos));
- document.querySelectorAll('#refs button').forEach(b=>b.classList.toggle('on',b.dataset.r===ref));
+ document.querySelectorAll('#dirs button').forEach(b=>b.classList.toggle('on',b.dataset.d===h.dir));
+ document.querySelectorAll('#kinds button').forEach(b=>b.classList.toggle('on',b.dataset.k===h.kind));
+ document.querySelectorAll('#poss button').forEach(b=>b.classList.toggle('on',b.dataset.p===h.pos));
+ document.querySelectorAll('#refs button').forEach(b=>b.classList.toggle('on',b.dataset.r===h.ref));
  draw();
 }
-document.querySelectorAll('#kinds button').forEach(b=>b.onclick=()=>{kind=b.dataset.k;show();});
-document.querySelectorAll('#poss button').forEach(b=>b.onclick=()=>{pos=b.dataset.p;show();});
-document.querySelectorAll('#refs button').forEach(b=>b.onclick=()=>{ref=b.dataset.r;show();});
-document.querySelectorAll('#dirs button').forEach(b=>b.onclick=()=>{dir=b.dataset.d;show();});
-$('model').onchange=()=>{const v=+$('model').value;if(v<2){const m=MODELS[v];$('rd').value=m[0];$('tw').value=m[1];$('th').value=m[2];}draw();};
-document.querySelectorAll('input').forEach(i=>i.addEventListener('input',draw));
+const setF=(sel,key,attr)=>document.querySelectorAll(sel+' button').forEach(b=>b.onclick=()=>{readUI();HC()[key]=b.dataset[attr];show();});
+setF('#kinds','kind','k');setF('#poss','pos','p');setF('#refs','ref','r');setF('#dirs','dir','d');
+$('model').onchange=()=>{readUI();const v=+$('model').value;if(v<2){const m=MODELS[v];HC().rd=String(m[0]);HC().tw=String(m[1]);HC().th=String(m[2]);}show();};
+document.querySelectorAll('input[type=number]').forEach(i=>i.addEventListener('input',()=>{readUI();draw();}));
+
+/* 구멍 추가: 지금 구멍을 복사해서 옆에 놓습니다 */
+$('addHole').onclick=()=>{
+ readUI();
+ if(holes.length>=MAXH)return;
+ const c=calc(),it=c.items[cur],n=Object.assign({},HC());
+ n.pos='manual';
+ if(it&&it.ok){
+  const [x0,y0,x1,y1]=bbox(it.pts),gap=60;
+  let dx=0,dy=0;
+  if(x1+gap+(x1-x0)<=c.W)dx=(x1-x0)+gap;
+  else if(y1+gap+(y1-y0)<=c.H)dy=(y1-y0)+gap;
+  n.hx=String(+(it.man[0]+dx).toFixed(2));n.hy=String(+(it.man[1]+dy).toFixed(2));
+ }
+ holes.push(n);cur=holes.length-1;show();
+};
+$('delHole').onclick=()=>{
+ if(holes.length<=1)return;
+ holes.splice(cur,1);cur=Math.max(0,cur-1);show();
+};
+$('W').addEventListener('input',draw);$('H').addEventListener('input',draw);
 show();
 </script>
 </body></html>

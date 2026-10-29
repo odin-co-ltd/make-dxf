@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>상판 도면 만들기</title>
+
+<style>
+/* 레이아웃: 번호 카드 5개를 위에서 아래로 쌓는 한 칸짜리 입력 화면. 베이지 바탕에 카라멜 갈색 포인트. */
+:root{--bg:#f7f1e6;--card:#ffffff;--line:#e1d4bc;--ink:#3a2f24;--title:#6b4a2b;--main:#a67c52;--on-main:#ffffff;--soft:#fbf6ec;--field:#fffdf8;--hole:#ecd9b8;--dot:#c9704f;--warn:#a63d28;--note:#fbe9c4;--note-ink:#6b5324;--gray-btn:#c3b29a;--shadow:rgba(90,65,35,.10)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1f1912;--card:#2a221a;--line:#4a3d2e;--ink:#f0e6d6;--title:#e2c49c;--main:#b88a58;--on-main:#1f1912;--soft:#332a20;--field:#241d15;--hole:#5a4630;--dot:#e58e6e;--warn:#ef9b84;--note:#40331c;--note-ink:#ecd9a8;--gray-btn:#5d4f3d;--shadow:rgba(0,0,0,.35);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1f1912;--card:#2a221a;--line:#4a3d2e;--ink:#f0e6d6;--title:#e2c49c;--main:#b88a58;--on-main:#1f1912;--soft:#332a20;--field:#241d15;--hole:#5a4630;--dot:#e58e6e;--warn:#ef9b84;--note:#40331c;--note-ink:#ecd9a8;--gray-btn:#5d4f3d;--shadow:rgba(0,0,0,.35);color-scheme:dark}
+body{margin:0;font-family:'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif;background:var(--bg);color:var(--ink);font-size:20px;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:900px;margin:0 auto}
+h1{font-size:25px;margin:8px 0 12px;color:var(--title)}
+.note{background:var(--note);padding:12px 16px;border-radius:14px;font-size:16px;margin-bottom:16px;color:var(--note-ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 2px 8px var(--shadow)}
+.card h2{font-size:22px;margin:0 0 12px;color:var(--title)}
+.row{display:flex;align-items:center;margin:10px 0}
+.row label{flex:1}
+.row input,.row select{font-size:23px;padding:9px 10px;border:1.5px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);min-width:0}
+.row input:focus,.row select:focus{outline:2px solid var(--main);outline-offset:1px}
+.row input{width:150px;text-align:right}
+.row span{margin-left:8px;width:40px}
+.tabs{display:flex;gap:8px;margin:6px 0 10px}
+.tabs button{flex:1;font-size:20px;padding:14px 4px;border:1.5px solid var(--line);border-radius:14px;background:var(--soft);color:var(--ink);min-width:0}
+.tabs button.on{background:var(--main);color:var(--on-main);border-color:var(--main)}
+button:focus-visible{outline:2px solid var(--main);outline-offset:2px}
+button.big{font-size:23px;padding:16px;width:100%;border:0;border-radius:14px;background:var(--main);color:var(--on-main);margin-top:8px}
+button.gray{background:var(--gray-btn);color:var(--ink)}
+button.big:disabled{opacity:.5}
+svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);border-radius:14px;display:block}
+.sv-panel{fill:var(--card);stroke:var(--title);stroke-width:3}
+.sv-hole{fill:var(--hole);stroke:var(--title);stroke-width:3}
+.sv-dot{fill:var(--dot)}
+.sv-dim{fill:var(--ink);font-size:31px}
+.sv-lab{fill:var(--warn);font-size:25px}
+.num{display:inline-block;background:var(--main);color:var(--on-main);border-radius:50%;width:34px;height:34px;text-align:center;line-height:34px;margin-right:8px;font-weight:bold}
+.small{font-size:15px;color:var(--warn)}
+.ink{color:var(--ink)}
+.status{font-size:16px;margin-top:10px;color:var(--ink)}
+</style>
+</head><body>
+<div class="wrap">
+<h1>상판 도면 만들기</h1>
+<div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 5번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
+
+<div class="card"><h2><span class="num">1</span>상판 크기</h2>
+<div class="row" style="gap:6px">
+ <label for="W" style="flex:none">가로</label><input id="W" type="number" inputmode="decimal" value="1200" style="width:110px">
+ <label style="flex:none;text-align:center;width:30px">x</label>
+ <label for="H" style="flex:none">세로</label><input id="H" type="number" inputmode="decimal" value="800" style="width:110px">
+ <span style="width:auto">mm</span></div></div>
+
+<div class="card"><h2><span class="num">2</span>구멍 종류</h2>
+<div class="tabs" id="kinds">
+ <button data-k="round">2-1 원형</button>
+ <button data-k="rect">2-2 사각형</button>
+ <button data-k="ros" class="on">2-3 로스타</button>
+</div>
+<div id="f-round" hidden>
+ <div class="row"><label for="dia">지름</label><input id="dia" type="number" inputmode="decimal" value="260"><span>mm</span></div></div>
+<div id="f-rect" hidden>
+ <div class="row"><label for="hw">구멍 가로</label><input id="hw" type="number" inputmode="decimal" value="143"><span>mm</span></div>
+ <div class="row"><label for="hh">구멍 세로</label><input id="hh" type="number" inputmode="decimal" value="61"><span>mm</span></div></div>
+<div id="f-ros">
+ <div class="row"><label for="model">모델 선택</label>
+  <select id="model">
+   <option value="0">GS-100A (거송)</option>
+   <option value="1">대흥 (거송 폴더 도면)</option>
+   <option value="2">직접 입력</option></select></div>
+ <div class="row"><label for="rd">원 지름</label><input id="rd" type="number" inputmode="decimal" value="330"><span>mm</span></div>
+ <div class="row"><label for="tw">돌출부 가로</label><input id="tw" type="number" inputmode="decimal" value="135"><span>mm</span></div>
+ <div class="row"><label for="th">돌출부 세로</label><input id="th" type="number" inputmode="decimal" value="108"><span>mm</span></div>
+ <div style="margin-top:8px">돌출부 방향 (원에서 돌출부가 나가는 쪽)</div>
+ <div class="tabs" id="dirs">
+  <button data-d="left" class="on">왼쪽</button>
+  <button data-d="right">오른쪽</button>
+  <button data-d="up">위쪽</button>
+  <button data-d="down">아래쪽</button>
+ </div>
+ <div class="small">모델 치수는 도면에서 읽은 값이며 실물 확인이 필요합니다.</div></div>
+</div>
+
+<div class="card"><h2><span class="num">3</span>구멍 위치</h2>
+<div id="f-ref">
+ <div style="margin-bottom:4px">기준점 (이 점을 기준으로 위치를 잡습니다)</div>
+ <div class="tabs" id="refs">
+  <button data-r="a" id="ra">3-1 왼쪽 끝</button>
+  <button data-r="b" id="rb">3-2 오른쪽 끝</button>
+  <button data-r="c" class="on">3-3 원 중앙</button>
+ </div></div>
+<div class="tabs" id="poss">
+ <button data-p="center" class="on">3-4 정중앙</button>
+ <button data-p="manual">3-5 직접 입력</button>
+</div>
+<div id="f-manual" hidden>
+ <div class="row"><label id="lx" for="hx">상판 왼쪽 끝에서 기준점까지</label><input id="hx" type="number" inputmode="decimal" value="600"><span>mm</span></div>
+ <div class="row"><label id="ly" for="hy">상판 위쪽 끝에서 기준점까지</label><input id="hy" type="number" inputmode="decimal" value="400"><span>mm</span></div></div>
+<div id="f-center" class="small ink">정중앙은 기준점이 상판의 정가운데에 옵니다.</div>
+</div>
+
+<div class="card"><h2><span class="num">4</span>미리보기</h2>
+<svg id="sv" viewBox="0 0 900 520" role="img" aria-label="상판과 구멍 미리보기"></svg>
+<div id="msg" class="small" style="margin-top:6px"></div></div>
+
+<div class="card"><h2><span class="num">5</span>파일 받기</h2>
+<button class="big" id="bDxf">DXF 파일 받기 (오토캐드, VCarve용)</button>
+<button class="big gray" id="bPdf">PDF 받기 (거래처 전달용)</button>
+<div class="status" id="status">DXF 좌표 기준은 상판 왼쪽 아래 모서리가 0,0이며 단위는 mm입니다.</div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let kind='ros',pos='center',ref='c',dir='left';
+const MODELS=[[330,135,108],[310,135,110]];
+
+/* ---------- 계산: 화면 좌표(왼쪽 위가 0,0, 아래로 +) ---------- */
+function calc(){
+ const W=+$('W').value,H=+$('H').value;
+ const c={W,H,ok:false,pts:null,ents:null,ref:null,label:'',lx:0,ly:0,name:kind};
+ if(!(W>0&&H>0))return c;
+ if(kind==='ros'){
+  const D=+$('rd').value,tw=+$('tw').value,th=+$('th').value,R=D/2;
+  if(!(D>0&&tw>0&&th>0&&th<D))return c;
+  const dv={left:[-1,0],right:[1,0],up:[0,-1],down:[0,1]}[dir],pv=[-dv[1],dv[0]];
+  let px,py;
+  if(pos==='center'){px=W/2;py=H/2;}else{px=+$('hx').value;py=+$('hy').value;}
+  const tabIsA=(dir==='left'||dir==='up');
+  let off=0;
+  if(ref==='a')off=tabIsA?(R+tw):-R;
+  if(ref==='b')off=tabIsA?-R:(R+tw);
+  const cx=px-dv[0]*off,cy=py-dv[1]*off;
+  const dx=Math.sqrt(R*R-(th/2)*(th/2)),ph0=Math.acos(dx/R);
+  const P=(a,b)=>[cx+dv[0]*a+pv[0]*b,cy+dv[1]*a+pv[1]*b];
+  const pts=[P(R+tw,th/2),P(dx,th/2)];
+  for(let i=0;i<=120;i++){const f=ph0+(2*Math.PI-2*ph0)*i/120;pts.push(P(R*Math.cos(f),R*Math.sin(f)));}
+  pts.push(P(dx,-th/2),P(R+tw,-th/2));
+  if(!pts.every(p=>p[0]>=-0.01&&p[0]<=W+0.01&&p[1]>=-0.01&&p[1]<=H+0.01))return c;
+  // DXF용 도형 (화면 좌표 기준 선분과 호)
+  const a=Math.atan2(-dv[1],dv[0])*180/Math.PI; // y를 뒤집은 방향각
+  c.ents=[
+   {t:'L',a:P(R+tw,th/2),b:P(R+tw,-th/2)},
+   {t:'L',a:P(R+tw,th/2),b:P(dx,th/2)},
+   {t:'L',a:P(R+tw,-th/2),b:P(dx,-th/2)},
+   {t:'A',c:[cx,cy],r:R,a0:a+ph0*180/Math.PI,a1:a+360-ph0*180/Math.PI}];
+  c.pts=pts;c.ref=[px,py];c.label='Ø'+D+' / '+tw+' x '+th;c.lx=cx;c.ly=cy+R;
+  c.pdfLabel='dia '+D+' / tab '+tw+' x '+th;c.ok=true;return c;
+ }
+ let hw,hh;
+ if(kind==='round'){hw=hh=+$('dia').value;}else{hw=+$('hw').value;hh=+$('hh').value;}
+ if(!(hw>0&&hh>0))return c;
+ let hx,hy;
+ if(pos==='center'){hx=(W-hw)/2;hy=(H-hh)/2;}else{hx=+$('hx').value;hy=+$('hy').value;}
+ if(!(hx>=0&&hy>=0&&hx+hw<=W&&hy+hh<=H))return c;
+ if(kind==='round'){
+  const cx=hx+hw/2,cy=hy+hh/2,pts=[];
+  for(let i=0;i<120;i++){const f=2*Math.PI*i/120;pts.push([cx+hw/2*Math.cos(f),cy+hw/2*Math.sin(f)]);}
+  c.pts=pts;c.ents=[{t:'C',c:[cx,cy],r:hw/2}];c.label='Ø'+hw;c.pdfLabel='dia '+hw;
+ }else{
+  const pts=[[hx,hy],[hx+hw,hy],[hx+hw,hy+hh],[hx,hy+hh]];
+  c.pts=pts;c.ents=pts.map((p,i)=>({t:'L',a:p,b:pts[(i+1)%4]}));c.label=hw+' x '+hh;c.pdfLabel=hw+' x '+hh;
+ }
+ c.lx=hx+hw/2;c.ly=hy+hh;c.ok=true;return c;
+}
+
+/* ---------- 미리보기 ---------- */
+function draw(){
+ const c=calc(),W=c.W,H=c.H;
+ if(!(W>0&&H>0)){$('sv').innerHTML='';$('msg').textContent='상판 가로와 세로를 넣어 주십시오.';return;}
+ const mx=80,my=60,aw=740,ah=380,s=Math.min(aw/W,ah/H),pw=W*s,ph=H*s;
+ let o=`<rect class="sv-panel" x="${mx}" y="${my}" width="${pw}" height="${ph}"/>`;
+ if(c.ok){
+  const X=v=>mx+v*s,Y=v=>my+v*s;
+  o+=`<polygon class="sv-hole" points="${c.pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')}"/>`;
+  if(kind==='ros')o+=`<circle class="sv-dot" cx="${X(c.ref[0])}" cy="${Y(c.ref[1])}" r="7"/>`;
+  o+=`<text class="sv-lab" x="${X(c.lx)}" y="${Y(c.ly)+26}" text-anchor="middle">${c.label}</text>`;
+ }
+ o+=`<text class="sv-dim" x="${mx+pw/2}" y="${my+ph+36}" text-anchor="middle">${W}</text>`;
+ o+=`<text class="sv-dim" x="${mx-12}" y="${my+ph/2}" text-anchor="end">${H}</text>`;
+ $('msg').textContent=c.ok?'':'구멍이 상판 밖으로 나가거나 숫자가 맞지 않습니다. 확인해 주세요.';
+ $('sv').innerHTML=o;
+ $('bDxf').disabled=$('bPdf').disabled=!c.ok;
+}
+
+/* ---------- DXF (R12 ASCII, 단위 mm, 왼쪽 아래가 0,0) ---------- */
+function makeDxf(c){
+ const f=v=>(+v).toFixed(3),Y=y=>c.H-y;
+ const o=[];const g=(code,val)=>{o.push(String(code));o.push(String(val));};
+ g(0,'SECTION');g(2,'HEADER');g(9,'$ACADVER');g(1,'AC1009');g(9,'$INSUNITS');g(70,4);g(0,'ENDSEC');
+ g(0,'SECTION');g(2,'TABLES');g(0,'TABLE');g(2,'LAYER');g(70,2);
+ for(const n of ['OUTLINE','HOLE']){g(0,'LAYER');g(2,n);g(70,0);g(62,7);g(6,'CONTINUOUS');}
+ g(0,'ENDTAB');g(0,'ENDSEC');
+ g(0,'SECTION');g(2,'ENTITIES');
+ const line=(l,a,b)=>{g(0,'LINE');g(8,l);g(62,7);g(10,f(a[0]));g(20,f(a[1]));g(30,0);g(11,f(b[0]));g(21,f(b[1]));g(31,0);};
+ const W=c.W,H=c.H;
+ [[0,0],[W,0],[W,H],[0,H]].forEach((p,i,a)=>line('OUTLINE',p,a[(i+1)%4]));
+ for(const e of c.ents){
+  if(e.t==='L')line('HOLE',[e.a[0],Y(e.a[1])],[e.b[0],Y(e.b[1])]);
+  if(e.t==='C'){g(0,'CIRCLE');g(8,'HOLE');g(62,7);g(10,f(e.c[0]));g(20,f(Y(e.c[1])));g(30,0);g(40,f(e.r));}
+  if(e.t==='A'){const n=a=>((a%360)+360)%360;g(0,'ARC');g(8,'HOLE');g(62,7);g(10,f(e.c[0]));g(20,f(Y(e.c[1])));g(30,0);g(40,f(e.r));g(50,f(n(e.a0)));g(51,f(n(e.a1)));}
+ }
+ g(0,'ENDSEC');g(0,'EOF');
+ return o.join('\r\n')+'\r\n';
+}
+
+/* ---------- ZIP (압축 없이 담기) ---------- */
+const CRC=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function makeZip(name,text){
+ const enc=new TextEncoder(),nb=enc.encode(name),d=enc.encode(text),crc=crc32(d);
+ const now=new Date(),t=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1),dt=((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();
+ const lh=new Uint8Array(30+nb.length),lv=new DataView(lh.buffer);
+ lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0,true);lv.setUint16(8,0,true);lv.setUint16(10,t,true);lv.setUint16(12,dt,true);
+ lv.setUint32(14,crc,true);lv.setUint32(18,d.length,true);lv.setUint32(22,d.length,true);lv.setUint16(26,nb.length,true);lv.setUint16(28,0,true);lh.set(nb,30);
+ const ch=new Uint8Array(46+nb.length),cv=new DataView(ch.buffer);
+ cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0,true);cv.setUint16(10,0,true);cv.setUint16(12,t,true);cv.setUint16(14,dt,true);
+ cv.setUint32(16,crc,true);cv.setUint32(20,d.length,true);cv.setUint32(24,d.length,true);cv.setUint16(28,nb.length,true);cv.setUint32(42,0,true);ch.set(nb,46);
+ const eo=new Uint8Array(22),ev=new DataView(eo.buffer);
+ ev.setUint32(0,0x06054b50,true);ev.setUint16(8,1,true);ev.setUint16(10,1,true);ev.setUint32(12,ch.length,true);ev.setUint32(16,lh.length+d.length,true);
+ const out=new Uint8Array(lh.length+d.length+ch.length+eo.length);
+ out.set(lh,0);out.set(d,lh.length);out.set(ch,lh.length+d.length);out.set(eo,lh.length+d.length+ch.length);
+ return out;
+}
+
+/* ---------- PDF (실제 크기 mm, 영문 숫자 표기) ---------- */
+function makePdf(c){
+ const k=72/25.4,m=18,pw=(c.W+2*m)*k,ph=(c.H+2*m)*k,fz=Math.max(12,Math.round(pw/45));
+ const X=x=>((m+x)*k).toFixed(2),Y=y=>((m+c.H-y)*k).toFixed(2);
+ let s='0.8 w\n';
+ s+=`${X(0)} ${Y(c.H)} ${(c.W*k).toFixed(2)} ${(c.H*k).toFixed(2)} re S\n`;
+ s+=c.pts.map((p,i)=>`${X(p[0])} ${Y(p[1])} ${i?'l':'m'}`).join('\n')+'\nh S\n';
+ const T=(x,y,t,sz)=>`BT /F1 ${sz} Tf ${x} ${y} Td (${t}) Tj ET\n`;
+ s+=T(((m+c.W/2)*k-fz).toFixed(2),((m*0.4)*k).toFixed(2),String(c.W),fz);
+ s+=T(((m*0.05)*k).toFixed(2),((m+c.H/2)*k).toFixed(2),String(c.H),fz);
+ s+=T((m*k).toFixed(2),((m+c.H)*k+fz*0.3).toFixed(2),'Hole: '+c.pdfLabel+'  /  Origin: bottom-left, unit mm',Math.round(fz*0.7));
+ const objs=[
+  '<< /Type /Catalog /Pages 2 0 R >>',
+  '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+  `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw.toFixed(2)} ${(ph+fz*1.2).toFixed(2)}] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>`,
+  `<< /Length ${s.length} >>\nstream\n${s}endstream`,
+  '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
+ let out='%PDF-1.4\n';const off=[];
+ objs.forEach((b,i)=>{off.push(out.length);out+=`${i+1} 0 obj\n${b}\nendobj\n`;});
+ const xr=out.length;
+ out+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`+off.map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('');
+ out+=`trailer\n<< /Size ${objs.length+1} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF\n`;
+ return out;
+}
+
+/* ---------- 받기 ---------- */
+function fname(c,ext){return `top_${c.W}x${c.H}_${c.name}.${ext}`;}
+function save(filename,data){
+ const st=$('status');
+ try{
+  const blob=new Blob([data],{type:filename.endsWith('.pdf')?'application/pdf':'application/octet-stream'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  st.textContent=filename+' 파일을 받았습니다. 다운로드 폴더를 확인해 주십시오.';
+ }catch(e){st.textContent='파일을 받지 못했습니다. 다시 눌러 주십시오.';}
+}
+$('bDxf').onclick=()=>{const c=calc();if(!c.ok)return;save(fname(c,'dxf'),makeDxf(c));};
+$('bPdf').onclick=()=>{const c=calc();if(!c.ok)return;save(fname(c,'pdf'),makePdf(c));};
+
+/* ---------- 화면 ---------- */
+function show(){
+ ['round','rect','ros'].forEach(k=>$('f-'+k).hidden=(k!==kind));
+ $('f-ref').hidden=(kind!=='ros');
+ $('f-manual').hidden=(pos!=='manual');
+ $('f-center').hidden=(pos!=='center');
+ const r=kind==='ros';
+ $('lx').textContent=r?'상판 왼쪽 끝에서 기준점까지':'상판 왼쪽 끝에서';
+ $('ly').textContent=r?'상판 위쪽 끝에서 기준점까지':'상판 위쪽 끝에서';
+ $('f-center').textContent=r?'정중앙은 기준점이 상판의 정가운데에 옵니다.':'정중앙은 가로, 세로 모두 가운데로 자동 계산됩니다.';
+ const vert=(dir==='up'||dir==='down');
+ $('ra').textContent='3-1 '+(vert?'위쪽 끝':'왼쪽 끝');
+ $('rb').textContent='3-2 '+(vert?'아래쪽 끝':'오른쪽 끝');
+ document.querySelectorAll('#dirs button').forEach(b=>b.classList.toggle('on',b.dataset.d===dir));
+ document.querySelectorAll('#kinds button').forEach(b=>b.classList.toggle('on',b.dataset.k===kind));
+ document.querySelectorAll('#poss button').forEach(b=>b.classList.toggle('on',b.dataset.p===pos));
+ document.querySelectorAll('#refs button').forEach(b=>b.classList.toggle('on',b.dataset.r===ref));
+ draw();
+}
+document.querySelectorAll('#kinds button').forEach(b=>b.onclick=()=>{kind=b.dataset.k;show();});
+document.querySelectorAll('#poss button').forEach(b=>b.onclick=()=>{pos=b.dataset.p;show();});
+document.querySelectorAll('#refs button').forEach(b=>b.onclick=()=>{ref=b.dataset.r;show();});
+document.querySelectorAll('#dirs button').forEach(b=>b.onclick=()=>{dir=b.dataset.d;show();});
+$('model').onchange=()=>{const v=+$('model').value;if(v<2){const m=MODELS[v];$('rd').value=m[0];$('tw').value=m[1];$('th').value=m[2];}draw();};
+document.querySelectorAll('input').forEach(i=>i.addEventListener('input',draw));
+show();
+</script>
+</body></html>

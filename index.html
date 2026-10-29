@@ -88,8 +88,9 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
    <option value="1">대흥 (거송 폴더 도면)</option>
    <option value="2">직접 입력</option></select></div>
  <div class="row"><label for="rd">원 지름</label><input id="rd" type="number" inputmode="decimal" value="330"><span>mm</span></div>
- <div class="row"><label for="tw">돌출부 가로</label><input id="tw" type="number" inputmode="decimal" value="135"><span>mm</span></div>
+ <div class="row"><label for="tw">전체 가로 (원+돌출부)</label><input id="tw" type="number" inputmode="decimal" value="135"><span>mm</span></div>
  <div class="row"><label for="th">돌출부 세로</label><input id="th" type="number" inputmode="decimal" value="108"><span>mm</span></div>
+ <div id="twHint" style="font-size:13px;opacity:.75;margin:-2px 0 4px"></div>
  <div style="margin-top:8px">돌출부 방향 (원에서 돌출부가 나가는 쪽)</div>
  <div class="tabs" id="dirs">
   <button data-d="left" class="on">왼쪽</button>
@@ -143,7 +144,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 const $=id=>document.getElementById(id);
 const MODELS=[[330,135,108],[310,135,110]];
 const MAXH=20;
-const newHole=()=>({kind:'ros',dia:'260',hw:'143',hh:'61',rd:'330',tw:'135',th:'108',model:'0',dir:'left',ref:'c',pos:'center',hx:'600',hy:'400'});
+const newHole=()=>({kind:'ros',dia:'260',hw:'143',hh:'61',rd:'330',tw:'465',th:'108',model:'0',dir:'left',ref:'c',pos:'center',hx:'600',hy:'400'});
 let holes=[newHole()],cur=0;
 const HC=()=>holes[cur];
 
@@ -165,8 +166,9 @@ function writeUI(){
 function calcHole(h,W,H){
  const bad=why=>({ok:false,why});
  if(h.kind==='ros'){
-  const D=+h.rd,tw=+h.tw,th=+h.th,R=D/2;
-  if(!(D>0&&tw>0&&th>0&&th<D))return bad('숫자를 확인해 주세요');
+  const D=+h.rd,L=+h.tw,th=+h.th,R=D/2,tw=L-D;
+  if(!(D>0&&th>0&&th<D))return bad('숫자를 확인해 주세요');
+  if(!(tw>0))return bad('전체 가로는 원 지름보다 커야 합니다');
   const dv={left:[-1,0],right:[1,0],up:[0,-1],down:[0,1]}[h.dir],pv=[-dv[1],dv[0]];
   let px,py;
   if(h.pos==='center'){px=W/2;py=H/2;}else{px=+h.hx;py=+h.hy;}
@@ -183,7 +185,7 @@ function calcHole(h,W,H){
   if(!pts.every(p=>p[0]>=-0.01&&p[0]<=W+0.01&&p[1]>=-0.01&&p[1]<=H+0.01))return bad('상판 밖으로 나갑니다');
   const a=Math.atan2(-dv[1],dv[0])*180/Math.PI;
   return {ok:true,kind:'ros',pts,ref:[px,py],man:[px,py],cen:[cx,cy],
-   label:'Ø'+D+' / '+tw+' x '+th,pdfLabel:'dia '+D+' / tab '+tw+' x '+th,lx:cx,ly:cy+R,
+   label:'Ø'+D+' / 전체 '+L+' x '+th,pdfLabel:'dia '+D+' / total '+L+' x '+th,lx:cx,ly:cy+R,
    ents:[
     {t:'L',a:P(R+tw,th/2),b:P(R+tw,-th/2)},
     {t:'L',a:P(R+tw,th/2),b:P(dx,th/2)},
@@ -370,6 +372,7 @@ function renderTabs(){
 }
 function show(){
  const h=HC();
+ $('twHint').textContent='';
  writeUI();renderTabs();
  ['round','rect','ros'].forEach(k=>$('f-'+k).hidden=(k!==h.kind));
  $('f-ref').hidden=(h.kind!=='ros');
@@ -387,11 +390,12 @@ function show(){
  document.querySelectorAll('#poss button').forEach(b=>b.classList.toggle('on',b.dataset.p===h.pos));
  document.querySelectorAll('#refs button').forEach(b=>b.classList.toggle('on',b.dataset.r===h.ref));
  draw();
+ if(h.kind==='ros'){const t=(+h.tw)-(+h.rd);$('twHint').textContent=t>0?'돌출부 길이는 자동 계산: '+t+' mm':'';}
 }
 const setF=(sel,key,attr)=>document.querySelectorAll(sel+' button').forEach(b=>b.onclick=()=>{readUI();HC()[key]=b.dataset[attr];show();});
 setF('#kinds','kind','k');setF('#poss','pos','p');setF('#refs','ref','r');setF('#dirs','dir','d');
-$('model').onchange=()=>{readUI();const v=+$('model').value;if(v<2){const m=MODELS[v];HC().rd=String(m[0]);HC().tw=String(m[1]);HC().th=String(m[2]);}show();};
-document.querySelectorAll('input[type=number]').forEach(i=>i.addEventListener('input',()=>{readUI();draw();}));
+$('model').onchange=()=>{readUI();const v=+$('model').value;if(v<2){const m=MODELS[v];HC().rd=String(m[0]);HC().tw=String(m[0]+m[1]);HC().th=String(m[2]);}show();};
+document.querySelectorAll('input[type=number]').forEach(i=>i.addEventListener('input',()=>{readUI();draw();const h=HC();if(h.kind==='ros'){const t=(+h.tw)-(+h.rd);$('twHint').textContent=t>0?'돌출부 길이는 자동 계산: '+t+' mm':'';}}));
 
 /* 구멍 추가: 지금 구멍을 복사해서 옆에 놓습니다 */
 $('addHole').onclick=()=>{

@@ -56,7 +56,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </style>
 </head><body>
 <div class="wrap">
-<h1>상판 도면 만들기</h1>
+<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · 2026-10-29 16:30</small></h1>
 <div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
@@ -69,12 +69,12 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 <div class="card"><h2><span class="num">2</span>구멍 개수와 종류</h2>
 <div class="small ink">구멍이 여러 개면 추가해서 구멍마다 종류와 위치를 따로 정합니다.</div>
 <div class="tabs wrapt" id="holeTabs"></div>
-<div class="mini"><button id="addHole" type="button">2-4 구멍 추가</button><button id="delHole" type="button">2-5 이 구멍 지우기</button></div>
+<div class="mini"><button id="addHole" type="button">구멍 추가</button><button id="delHole" type="button">이 구멍 지우기</button></div>
 <div id="curLab" class="curlab"></div>
 <div class="tabs" id="kinds">
- <button data-k="round">2-1 원형</button>
- <button data-k="rect">2-2 사각형</button>
- <button data-k="ros" class="on">2-3 로스타</button>
+ <button data-k="round">원형</button>
+ <button data-k="rect">사각형</button>
+ <button data-k="ros" class="on">로스타</button>
 </div>
 <div id="f-round" hidden>
  <div class="row"><label for="dia">지름</label><input id="dia" type="number" inputmode="decimal" value="260"><span>mm</span></div></div>
@@ -104,13 +104,13 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 <div id="f-ref">
  <div style="margin-bottom:4px">기준점 (이 점을 기준으로 위치를 잡습니다)</div>
  <div class="tabs" id="refs">
-  <button data-r="a" id="ra">3-1 왼쪽 끝</button>
-  <button data-r="b" id="rb">3-2 오른쪽 끝</button>
-  <button data-r="c" class="on">3-3 원 중앙</button>
+  <button data-r="a" id="ra">왼쪽 끝</button>
+  <button data-r="b" id="rb">오른쪽 끝</button>
+  <button data-r="c" class="on">원 중앙</button>
  </div></div>
 <div class="tabs" id="poss">
- <button data-p="center" class="on">3-4 정중앙</button>
- <button data-p="manual">3-5 직접 입력</button>
+ <button data-p="center" class="on">정중앙</button>
+ <button data-p="manual">직접 입력</button>
 </div>
 <div id="f-manual" hidden>
  <div class="row"><label id="lx" for="hx">상판 왼쪽 끝에서 기준점까지</label><input id="hx" type="number" inputmode="decimal" value="600"><span>mm</span></div>
@@ -124,11 +124,11 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 
 <div class="card"><h2><span class="num">5</span>참고 도면 확인</h2>
 <div class="small ink">제조사에서 받은 타공 도면 사진을 넣으면, 만든 구멍 모양과 나란히 놓고 비교할 수 있습니다. 사진은 이 기기 안에서만 보이고 어디에도 올라가지 않습니다.</div>
-<label class="filebtn" id="fileLab">5-1 도면 사진 넣기<input type="file" id="refImg" accept="image/*"></label>
+<label class="filebtn" id="fileLab">도면 사진 넣기<input type="file" id="refImg" accept="image/*"></label>
 <div class="cmp">
  <figure><figcaption>제조사 도면 사진</figcaption>
   <div class="imgbox"><img id="refView" alt="제조사 타공 도면" hidden><div class="empty" id="refEmpty">아직 넣은 사진이 없습니다.</div></div>
-  <div class="mini"><button id="rotBtn" type="button">5-2 사진 돌리기</button><button id="clrBtn" type="button">5-3 사진 지우기</button></div></figure>
+  <div class="mini"><button id="rotBtn" type="button">사진 돌리기</button><button id="clrBtn" type="button">사진 지우기</button></div></figure>
  <figure><figcaption id="zoomCap">지금 만든 구멍 (확대)</figcaption>
   <div class="imgbox"><svg id="sv2" viewBox="0 0 600 600" role="img" aria-label="만든 구멍 확대 그림" style="border:0;background:transparent"></svg></div></figure>
 </div>
@@ -380,8 +380,8 @@ function show(){
  $('ly').textContent=r?'상판 위쪽 끝에서 기준점까지':'상판 위쪽 끝에서 구멍 위쪽 끝까지';
  $('f-center').textContent=r?'정중앙은 기준점이 상판의 정가운데에 옵니다.':'정중앙은 가로, 세로 모두 가운데로 자동 계산됩니다.';
  const vert=(h.dir==='up'||h.dir==='down');
- $('ra').textContent='3-1 '+(vert?'위쪽 끝':'왼쪽 끝');
- $('rb').textContent='3-2 '+(vert?'아래쪽 끝':'오른쪽 끝');
+ $('ra').textContent=''+(vert?'위쪽 끝':'왼쪽 끝');
+ $('rb').textContent=''+(vert?'아래쪽 끝':'오른쪽 끝');
  document.querySelectorAll('#dirs button').forEach(b=>b.classList.toggle('on',b.dataset.d===h.dir));
  document.querySelectorAll('#kinds button').forEach(b=>b.classList.toggle('on',b.dataset.k===h.kind));
  document.querySelectorAll('#poss button').forEach(b=>b.classList.toggle('on',b.dataset.p===h.pos));
@@ -397,16 +397,24 @@ document.querySelectorAll('input[type=number]').forEach(i=>i.addEventListener('i
 $('addHole').onclick=()=>{
  readUI();
  if(holes.length>=MAXH)return;
- const c=calc(),it=c.items[cur],n=Object.assign({},HC());
- n.pos='manual';
- if(it&&it.ok){
-  const [x0,y0,x1,y1]=bbox(it.pts),gap=60;
-  let dx=0,dy=0;
-  if(x1+gap+(x1-x0)<=c.W)dx=(x1-x0)+gap;
-  else if(y1+gap+(y1-y0)<=c.H)dy=(y1-y0)+gap;
-  n.hx=String(+(it.man[0]+dx).toFixed(2));n.hy=String(+(it.man[1]+dy).toFixed(2));
+ const c=calc();
+ if(!(c.W>0&&c.H>0))return;
+ const n=Object.assign({},HC());n.pos='manual';
+ const base=(c.items[cur]&&c.items[cur].ok)?c.items[cur].man:[c.W/2,c.H/2];
+ const gap=30,others=c.items.filter(i=>i.ok).map(i=>bbox(i.pts));
+ let best=null,bd=1e18;
+ for(let x=0;x<=c.W;x+=10)for(let y=0;y<=c.H;y+=10){
+  n.hx=String(x);n.hy=String(y);
+  const t=calcHole(n,c.W,c.H);if(!t.ok)continue;
+  const b=bbox(t.pts);
+  if(others.some(o=>!(b[2]+gap<o[0]||o[2]+gap<b[0]||b[3]+gap<o[1]||o[3]+gap<b[1])))continue;
+  const d=Math.hypot(x-base[0],y-base[1]);
+  if(d<bd){bd=d;best=[x,y];}
  }
+ if(best){n.hx=String(best[0]);n.hy=String(best[1]);}
+ else{n.hx=String(Math.round(base[0]));n.hy=String(Math.round(base[1]));}
  holes.push(n);cur=holes.length-1;show();
+ if(!best)$('status').textContent='빈 자리가 없어 겹쳐 놓였습니다. 위치를 직접 바꿔 주십시오.';
 };
 $('delHole').onclick=()=>{
  if(holes.length<=1)return;

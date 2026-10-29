@@ -34,6 +34,8 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 .sv-idx{fill:var(--ink);font-size:34px;font-weight:bold}
 .sv-dot{fill:var(--dot)}
 .sv-dim{fill:var(--ink);font-size:31px}
+.sv-ln{stroke:var(--dot);stroke-width:1.5}
+.sv-dm{fill:var(--dot);font-size:22px}
 .sv-lab{fill:var(--warn);font-size:25px}
 .cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:10px}
 .cmp figure{margin:0;min-width:0}
@@ -56,7 +58,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </style>
 </head><body>
 <div class="wrap">
-<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · 2026-10-29 16:30</small></h1>
+<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · 제조사별 2단계 선택 · 2026-10-29 20:10</small></h1>
 <div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
@@ -82,11 +84,12 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
  <div class="row"><label for="hw">구멍 가로</label><input id="hw" type="number" inputmode="decimal" value="143"><span>mm</span></div>
  <div class="row"><label for="hh">구멍 세로</label><input id="hh" type="number" inputmode="decimal" value="61"><span>mm</span></div></div>
 <div id="f-ros">
- <div class="row"><label for="model">모델 선택</label>
-  <select id="model">
-   <option value="0">GS-100A (거송)</option>
-   <option value="1">대흥 (거송 폴더 도면)</option>
-   <option value="2">직접 입력</option></select></div>
+ <div class="row"><label for="maker">1단계 제조사</label>
+  <select id="maker"></select></div>
+ <div class="row"><label for="model">2단계 모델</label>
+  <select id="model"></select></div>
+ <div class="mini"><button type="button" id="saveModel">지금 값을 모델로 저장</button><button type="button" id="delModel">고른 저장 모델 지우기</button></div>
+ <div id="modelNote" class="small" style="margin:2px 0 6px"></div>
  <div class="row"><label for="rd">원 지름</label><input id="rd" type="number" inputmode="decimal" value="330"><span>mm</span></div>
  <div class="row"><label for="tw">전체 가로 (원+돌출부)</label><input id="tw" type="number" inputmode="decimal" value="135"><span>mm</span></div>
  <div class="row"><label for="th">돌출부 세로</label><input id="th" type="number" inputmode="decimal" value="108"><span>mm</span></div>
@@ -120,6 +123,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </div>
 
 <div class="card"><h2><span class="num">4</span>미리보기</h2>
+<label style="display:block;margin:2px 0 6px"><input type="checkbox" id="showDim" checked> 주요 치수 표시 (구멍에서 상판 끝까지 거리, 구멍 사이 간격, 구멍 크기)</label>
 <svg id="sv" viewBox="0 0 900 520" role="img" aria-label="상판과 구멍 미리보기"></svg>
 <div id="msg" class="small" style="margin-top:6px"></div></div>
 
@@ -142,23 +146,63 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </div>
 <script>
 const $=id=>document.getElementById(id);
-const MODELS=[[330,135,108],[310,135,110]];
+const BASE_MODELS=[
+ {mk:'거송',n:'GS-100A',d:330,L:465,th:108},
+ {mk:'거송',n:'1200x800 (대흥 도면)',d:310,L:445,th:110},
+ {mk:'툴젠',n:'도시가스 1050x750',d:310,L:440,th:114},
+ {mk:'툴젠',n:'TJ-205G',d:310,L:440,th:115},
+ {mk:'툴젠',n:'TJ-201G',d:310,L:440,th:114},
+ {mk:'툴젠',n:'TJ-200G (목 좁아지는 형)',d:312,L:452,th:332,sl:191.3,tp:34.8},
+ {mk:'툴젠',n:'TJ-307G / TJ-308G',d:360,L:492,th:330},
+ {mk:'한국GE',n:'HK-2006GK',d:310,L:440,th:110},
+ {mk:'한국GE',n:'HK-211B (목 좁아지는 형)',d:310,L:440,th:335,sl:185,tp:35},
+ {mk:'한국GE',n:'KG-212SBG',d:350,L:485,th:335},
+ {mk:'한국GE',n:'KG-212SG',d:350,L:510,th:140},
+ {mk:'부흥세이프',n:'BHS-8000',d:350,L:490,th:146},
+ {mk:'부흥세이프',n:'SAFE-8000 (LPG)',d:350,L:490,th:145},
+ {mk:'부흥세이프',n:'SAFE-8500',d:350,L:495,th:146},
+ {mk:'부흥세이프',n:'BHS-5000',d:350,L:490,th:330},
+ {mk:'부흥세이프',n:'SAFE-7000',d:368,L:510,th:330},
+ {mk:'부흥세이프',n:'BHS-100 / BHS-200',d:308,L:432,th:110},
+ {mk:'부흥세이프',n:'SAFE-1000',d:325,L:498,th:110},
+ {mk:'부흥세이프',n:'BHS-600 (목 좁아지는 형)',d:308,L:448,th:330,sl:160,tp:70},
+ {mk:'나비드쿡',n:'K-630 (목 좁아지는 형)',d:308,L:448,th:330,sl:160,tp:70},
+ {mk:'린나이',n:'RIR-4000 (돌출부 끝 둥근형)',d:332,L:491.5,th:122,rt:1},
+ {mk:'용민',n:'YM-101B',d:366,L:498,th:360},
+ {mk:'우신',n:'WS 1600x750 (대흥 도면, 이전 폴더 DXF)',d:345,L:485,th:110},
+ {mk:'화로스타',n:'HR-1305BG (D자형)',d:337,L:462,th:337},
+ {mk:'화로스타',n:'HR-1305BG-1 (목 좁아지는 형)',d:225,L:360,th:335,sl:145,tp:52}];
+let SAVED=[];
+try{SAVED=JSON.parse(localStorage.getItem('ros_models')||'[]').filter(m=>m&&m.n&&m.d>0&&m.L>m.d&&m.th>0);}catch(e){SAVED=[];}
+const allModels=()=>BASE_MODELS.concat(SAVED);
+const MAKERS=()=>{const r=[];BASE_MODELS.forEach(m=>{if(!r.includes(m.mk))r.push(m.mk);});if(SAVED.length)r.push('내 모델');return r;};
+const mkOf=m=>m?(m.mk||'내 모델'):'';
+function fillModels(sel,mk){
+ const all=allModels();
+ if(mk===undefined){const m=sel!==undefined?all[+sel]:null;mk=m?mkOf(m):(HC&&HC().maker)||MAKERS()[0];}
+ $('maker').innerHTML=MAKERS().map(k=>`<option value="${k}">${k}</option>`).join('');
+ $('maker').value=mk;
+ const o=all.map((m,i)=>mkOf(m)===mk?`<option value="${i}">${m.n} — Ø${m.d} / 전체 ${m.L} x ${m.th}</option>`:'').join('');
+ $('model').innerHTML='<option value="p">2단계: 모델을 고르세요</option>'+o+'<option value="c">직접 입력</option>';
+ if(sel!==undefined)$('model').value=sel;
+}
 const MAXH=20;
 const newHole=()=>({kind:'ros',dia:'260',hw:'143',hh:'61',rd:'330',tw:'465',th:'108',model:'0',dir:'left',ref:'c',pos:'center',hx:'600',hy:'400'});
 let holes=[newHole()],cur=0;
 const HC=()=>holes[cur];
 
 /* ---------- 입력칸 <-> 구멍 데이터 ---------- */
+fillModels();
 function readUI(){
  const h=HC();
  h.dia=$('dia').value;h.hw=$('hw').value;h.hh=$('hh').value;
- h.rd=$('rd').value;h.tw=$('tw').value;h.th=$('th').value;h.model=$('model').value;
+ h.rd=$('rd').value;h.tw=$('tw').value;h.th=$('th').value;h.model=$('model').value;h.maker=$('maker').value;
  h.hx=$('hx').value;h.hy=$('hy').value;
 }
 function writeUI(){
  const h=HC();
  $('dia').value=h.dia;$('hw').value=h.hw;$('hh').value=h.hh;
- $('rd').value=h.rd;$('tw').value=h.tw;$('th').value=h.th;$('model').value=h.model;
+ $('rd').value=h.rd;$('tw').value=h.tw;$('th').value=h.th;fillModels(h.model,h.maker||undefined);
  $('hx').value=h.hx;$('hy').value=h.hy;
 }
 
@@ -167,7 +211,7 @@ function calcHole(h,W,H){
  const bad=why=>({ok:false,why});
  if(h.kind==='ros'){
   const D=+h.rd,L=+h.tw,th=+h.th,R=D/2,tw=L-D;
-  if(!(D>0&&th>0&&th<D))return bad('숫자를 확인해 주세요');
+  if(!(D>0&&th>0&&(th<=D||+h.tp>0)))return bad('숫자를 확인해 주세요');
   if(!(tw>0))return bad('전체 가로는 원 지름보다 커야 합니다');
   const dv={left:[-1,0],right:[1,0],up:[0,-1],down:[0,1]}[h.dir],pv=[-dv[1],dv[0]];
   let px,py;
@@ -177,11 +221,17 @@ function calcHole(h,W,H){
   if(h.ref==='a')off=tabIsA?(R+tw):-R;
   if(h.ref==='b')off=tabIsA?-R:(R+tw);
   const cx=px-dv[0]*off,cy=py-dv[1]*off;
-  const dx=Math.sqrt(R*R-(th/2)*(th/2)),ph0=Math.acos(dx/R);
+  const tp=+h.tp>0&&+h.sl>0?+h.tp:0,sl=+h.sl||0,rt=h.rt&&th<D&&!tp,ae=R+tw-(rt?th/2:0);
+  const an=tp?ae-sl-tp:0;
+  if(tp&&!(an>0&&an<R))return bad('이 모델 치수를 확인해 주세요');
+  const dx=tp?an:Math.sqrt(R*R-(th/2)*(th/2)),hn=tp?Math.sqrt(R*R-an*an):th/2,ph0=Math.acos(dx/R);
   const P=(a,b)=>[cx+dv[0]*a+pv[0]*b,cy+dv[1]*a+pv[1]*b];
-  const pts=[P(R+tw,th/2),P(dx,th/2)];
+  const pts=tp?[P(ae,th/2),P(ae-sl,th/2),P(dx,hn)]:[P(ae,th/2),P(dx,th/2)];
   for(let i=0;i<=120;i++){const f=ph0+(2*Math.PI-2*ph0)*i/120;pts.push(P(R*Math.cos(f),R*Math.sin(f)));}
-  pts.push(P(dx,-th/2),P(R+tw,-th/2));
+  pts.push(P(dx,-hn));
+  if(tp)pts.push(P(ae-sl,-th/2));
+  pts.push(P(ae,-th/2));
+  if(rt)for(let i=1;i<24;i++){const u=-Math.PI/2+Math.PI*i/24;pts.push(P(ae+th/2*Math.cos(u),th/2*Math.sin(u)));}
   if(!pts.every(p=>p[0]>=-0.01&&p[0]<=W+0.01&&p[1]>=-0.01&&p[1]<=H+0.01))return bad('상판 밖으로 나갑니다');
   const a=Math.atan2(-dv[1],dv[0])*180/Math.PI;
   return {ok:true,kind:'ros',pts,ref:[px,py],man:[px,py],cen:[cx,cy],
@@ -228,8 +278,34 @@ function calc(){
  c.items.forEach((it,i)=>{if(!it.ok)m.push((i+1)+'번 구멍: '+it.why);});
  for(let i=0;i<c.items.length;i++)for(let j=i+1;j<c.items.length;j++)
   if(c.items[i].ok&&c.items[j].ok&&overlap(c.items[i].pts,c.items[j].pts))m.push((i+1)+'번 구멍과 '+(j+1)+'번 구멍이 겹칩니다');
- c.msg=m.join(' / ');c.ok=m.length===0;
+ c.msg=m.join(' / ');c.ok=m.length===0;c.dim=$('showDim').checked;
  return c;
+}
+
+/* ---------- 주요 치수 (상판 좌표, 위가 0) ---------- */
+function dimsFor(c,withLabel){
+ const f=v=>String(+(+v).toFixed(1)),L=[],T=[],B=c.items.map(it=>it.ok?bbox(it.pts):null);
+ const add=(a,b,t,dir,fr)=>{fr=fr||.5;L.push([a,b]);T.push({x:a[0]+(b[0]-a[0])*fr,y:a[1]+(b[1]-a[1])*fr,t:f(fr===.5?t:Math.round(t*2)/2),dir});};
+ B.forEach((b,i)=>{
+  if(!b)return;
+  const ce=c.items[i].cen||[(b[0]+b[2])/2,(b[1]+b[3])/2],cx=ce[0],cy=ce[1];
+  const oth=B.filter((q,j)=>q&&j!==i);
+  const blk=(fn)=>oth.some(fn);
+  if(b[0]>0.5&&!blk(q=>q[2]<=b[0]+0.5&&q[1]<cy&&cy<q[3]))add([0,cy],[b[0],cy],b[0],'h');
+  if(c.W-b[2]>0.5&&!blk(q=>q[0]>=b[2]-0.5&&q[1]<cy&&cy<q[3]))add([b[2],cy],[c.W,cy],c.W-b[2],'h');
+  if(b[1]>0.5&&!blk(q=>q[3]<=b[1]+0.5&&q[0]<cx&&cx<q[2]))add([cx,0],[cx,b[1]],b[1],'v');
+  if(c.H-b[3]>0.5&&!blk(q=>q[1]>=b[3]-0.5&&q[0]<cx&&cx<q[2]))add([cx,b[3]],[cx,c.H],c.H-b[3],'v');
+  add([b[0],cy],[b[2],cy],b[2]-b[0],'h',.3);
+  add([cx,b[1]],[cx,b[3]],b[3]-b[1],'v',.2);
+  if(withLabel)T.push({x:cx,y:b[3],t:(c.items.length>1?'#'+(i+1)+' ':'')+c.items[i].pdfLabel,dir:'b'});
+ });
+ for(let i=0;i<B.length;i++)for(let j=i+1;j<B.length;j++){
+  const a=B[i],b=B[j];if(!a||!b)continue;
+  const oy0=Math.max(a[1],b[1]),oy1=Math.min(a[3],b[3]),ox0=Math.max(a[0],b[0]),ox1=Math.min(a[2],b[2]);
+  if(oy1>oy0){const y=(oy0+oy1)/2;if(a[2]<=b[0])add([a[2],y],[b[0],y],b[0]-a[2],'h');else if(b[2]<=a[0])add([b[2],y],[a[0],y],a[0]-b[2],'h');}
+  if(ox1>ox0){const x=(ox0+ox1)/2;if(a[3]<=b[1])add([x,a[3]],[x,b[1]],b[1]-a[3],'v');else if(b[3]<=a[1])add([x,b[3]],[x,a[1]],a[1]-b[3],'v');}
+ }
+ return {L,T};
 }
 
 /* ---------- 미리보기 ---------- */
@@ -246,6 +322,11 @@ function draw(){
   if(many)o+=`<text class="sv-idx" x="${X(it.cen[0])}" y="${Y(it.cen[1])-(it.kind==='ros'?14:-10)}" text-anchor="middle">${i+1}</text>`;
   else o+=`<text class="sv-lab" x="${X(it.lx)}" y="${Y(it.ly)+26}" text-anchor="middle">${it.label}</text>`;
  });
+ if($('showDim').checked){
+  const d=dimsFor(c,false);
+  d.L.forEach(l=>{o+=`<line class="sv-ln" x1="${X(l[0][0])}" y1="${Y(l[0][1])}" x2="${X(l[1][0])}" y2="${Y(l[1][1])}"/>`;});
+  d.T.forEach(t=>{o+=t.dir==='h'?`<text class="sv-dm" x="${X(t.x)}" y="${Y(t.y)-6}" text-anchor="middle">${t.t}</text>`:`<text class="sv-dm" x="${X(t.x)+6}" y="${Y(t.y)+7}">${t.t}</text>`;});
+ }
  o+=`<text class="sv-dim" x="${mx+pw/2}" y="${my+ph+36}" text-anchor="middle">${W}</text>`;
  o+=`<text class="sv-dim" x="${mx-12}" y="${my+ph/2}" text-anchor="end">${H}</text>`;
  $('sv').innerHTML=o;
@@ -259,8 +340,8 @@ function makeDxf(c){
  const f=v=>(+v).toFixed(3),Y=y=>c.H-y;
  const o=[];const g=(code,val)=>{o.push(String(code));o.push(String(val));};
  g(0,'SECTION');g(2,'HEADER');g(9,'$ACADVER');g(1,'AC1009');g(9,'$INSUNITS');g(70,4);g(0,'ENDSEC');
- g(0,'SECTION');g(2,'TABLES');g(0,'TABLE');g(2,'LAYER');g(70,2);
- for(const n of ['OUTLINE','HOLE']){g(0,'LAYER');g(2,n);g(70,0);g(62,7);g(6,'CONTINUOUS');}
+ g(0,'SECTION');g(2,'TABLES');g(0,'TABLE');g(2,'LAYER');g(70,3);
+ for(const n of ['OUTLINE','HOLE','DIM']){g(0,'LAYER');g(2,n);g(70,0);g(62,7);g(6,'CONTINUOUS');}
  g(0,'ENDTAB');g(0,'ENDSEC');
  g(0,'SECTION');g(2,'ENTITIES');
  const line=(l,a,b)=>{g(0,'LINE');g(8,l);g(62,7);g(10,f(a[0]));g(20,f(a[1]));g(30,0);g(11,f(b[0]));g(21,f(b[1]));g(31,0);};
@@ -270,6 +351,13 @@ function makeDxf(c){
   if(e.t==='L')line('HOLE',[e.a[0],Y(e.a[1])],[e.b[0],Y(e.b[1])]);
   if(e.t==='C'){g(0,'CIRCLE');g(8,'HOLE');g(62,7);g(10,f(e.c[0]));g(20,f(Y(e.c[1])));g(30,0);g(40,f(e.r));}
   if(e.t==='A'){const n=a=>((a%360)+360)%360;g(0,'ARC');g(8,'HOLE');g(62,7);g(10,f(e.c[0]));g(20,f(Y(e.c[1])));g(30,0);g(40,f(e.r));g(50,f(n(e.a0)));g(51,f(n(e.a1)));}
+ }
+ if(c.dim){
+  const d=dimsFor(c,true),fs=Math.max(6,c.W/90);
+  d.L.forEach(l=>line('DIM',[l[0][0],Y(l[0][1])],[l[1][0],Y(l[1][1])]));
+  d.T.forEach(t=>{let x=t.x,y=t.y;if(t.dir==='h')y-=fs*0.5;else if(t.dir==='v')x+=fs*0.4;else{y+=fs*1.6;x-=fs*t.t.length*0.3;}
+   if(t.dir==='h')x-=fs*t.t.length*0.3;
+   g(0,'TEXT');g(8,'DIM');g(62,7);g(10,f(x));g(20,f(Y(y)));g(30,0);g(40,f(fs));g(1,t.dir==='b'?t.t.replace(/Ø/g,'dia '):t.t);});
  }
  g(0,'ENDSEC');g(0,'EOF');
  return o.join('\r\n')+'\r\n';
@@ -286,8 +374,16 @@ function makePdf(c){
   s+=it.pts.map((p,j)=>`${X(p[0])} ${Y(p[1])} ${j?'l':'m'}`).join('\n')+'\nh S\n';
   if(c.items.length>1)s+=T((((m+it.cen[0])*k)-fz*0.3).toFixed(2),(((m+c.H-it.cen[1])*k)-fz*0.3).toFixed(2),String(i+1),fz);
  });
+ if(c.dim){
+  const d=dimsFor(c,false),sz=Math.max(7,Math.round(fz*0.5));
+  s+='0.3 w 0.7 0.3 0.1 RG\n';
+  d.L.forEach(l=>{s+=`${X(l[0][0])} ${Y(l[0][1])} m ${X(l[1][0])} ${Y(l[1][1])} l S\n`;});
+  s+='0 G 0.8 w\n';
+  d.T.forEach(t=>{const x=(m+t.x)*k,y=(m+c.H-t.y)*k;
+   s+=t.dir==='h'?T((x-sz*0.9).toFixed(2),(y+2).toFixed(2),t.t,sz):T((x+3).toFixed(2),(y-sz*0.3).toFixed(2),t.t,sz);});
+ }
  s+=T(((m+c.W/2)*k-fz).toFixed(2),((m*0.4)*k).toFixed(2),String(c.W),fz);
- s+=T(((m*0.05)*k).toFixed(2),((m+c.H/2)*k).toFixed(2),String(c.H),fz);
+ s+=T(((m*0.05)*k).toFixed(2),((m+c.H*0.04)*k).toFixed(2),String(c.H),fz);
  const note=c.items.map((it,i)=>(c.items.length>1?'#'+(i+1)+' ':'Hole: ')+it.pdfLabel).join('  |  ')+'  /  Origin: bottom-left, unit mm';
  s+=T((m*k).toFixed(2),((m+c.H)*k+fz*0.3).toFixed(2),note,Math.round(fz*0.6));
  const objs=[
@@ -394,8 +490,29 @@ function show(){
 }
 const setF=(sel,key,attr)=>document.querySelectorAll(sel+' button').forEach(b=>b.onclick=()=>{readUI();HC()[key]=b.dataset[attr];show();});
 setF('#kinds','kind','k');setF('#poss','pos','p');setF('#refs','ref','r');setF('#dirs','dir','d');
-$('model').onchange=()=>{readUI();const v=+$('model').value;if(v<2){const m=MODELS[v];HC().rd=String(m[0]);HC().tw=String(m[0]+m[1]);HC().th=String(m[2]);}show();};
-document.querySelectorAll('input[type=number]').forEach(i=>i.addEventListener('input',()=>{readUI();draw();const h=HC();if(h.kind==='ros'){const t=(+h.tw)-(+h.rd);$('twHint').textContent=t>0?'돌출부 길이는 자동 계산: '+t+' mm':'';}}));
+$('maker').onchange=()=>{readUI();const h=HC();h.maker=$('maker').value;h.model='p';fillModels('p',h.maker);$('modelNote').textContent='';show();};
+$('model').onchange=()=>{readUI();const v=$('model').value,h=HC();$('modelNote').textContent='';
+ if(v==='c'){h.tp=0;h.sl=0;h.rt=0;}
+ else if(v!=='p'){const m=allModels()[+v];if(m){h.rd=String(m.d);h.tw=String(m.L);h.th=String(m.th);h.rt=m.rt?1:0;h.tp=m.tp||0;h.sl=m.sl||0;h.maker=mkOf(m);if(m.tp)$('modelNote').textContent='이 모델은 돌출부 목이 좁아지는 모양입니다 (도면 치수 기준).';}}
+ show();};
+$('saveModel').onclick=()=>{
+ readUI();const h=HC(),d=+h.rd,L=+h.tw,th=+h.th;
+ if(!(d>0&&L>d&&th>0)){$('modelNote').textContent='저장할 수 없습니다. 원 지름, 전체 가로, 돌출부 세로를 먼저 확인해 주십시오.';return;}
+ const n=(window.prompt('저장할 모델 이름을 적어 주십시오 (예: 린나이 RB-100)','')||'').trim();
+ if(!n)return;
+ SAVED.push({n,d,L,th,rt:h.rt?1:0,tp:+h.tp||0,sl:+h.sl||0});h.maker='내 모델';
+ try{localStorage.setItem('ros_models',JSON.stringify(SAVED));$('modelNote').textContent='"'+n+'" 모델을 이 기기에 저장했습니다. (이 컴퓨터/폰의 이 브라우저에서만 보입니다)';}
+ catch(e){$('modelNote').textContent='이 화면에서는 저장이 막혀 있어 목록에는 넣었지만 닫으면 사라집니다.';}
+ h.model=String(allModels().length-1);fillModels(h.model,'내 모델');show();
+};
+$('delModel').onclick=()=>{
+ const v=$('model').value;if(v==='c'||v==='p'||+v<BASE_MODELS.length){$('modelNote').textContent='내가 저장한 모델만 지울 수 있습니다.';return;}
+ const i=+v-BASE_MODELS.length,nm=SAVED[i].n;SAVED.splice(i,1);
+ try{localStorage.setItem('ros_models',JSON.stringify(SAVED));}catch(e){}
+ holes.forEach(h=>{if(h.model===v)h.model='c';else if(h.model!=='c'&&+h.model>+v)h.model=String(+h.model-1);});
+ fillModels();$('modelNote').textContent='"'+nm+'" 모델을 지웠습니다.';show();
+};
+document.querySelectorAll('input[type=number]').forEach(i=>i.addEventListener('input',()=>{readUI();if(['rd','tw','th'].includes(i.id)){const q=HC();q.tp=0;q.sl=0;q.rt=0;}draw();const h=HC();if(h.kind==='ros'){const t=(+h.tw)-(+h.rd);$('twHint').textContent=t>0?'돌출부 길이는 자동 계산: '+t+' mm':'';}}));
 
 /* 구멍 추가: 지금 구멍을 복사해서 옆에 놓습니다 */
 $('addHole').onclick=()=>{
@@ -424,6 +541,7 @@ $('delHole').onclick=()=>{
  if(holes.length<=1)return;
  holes.splice(cur,1);cur=Math.max(0,cur-1);show();
 };
+$('showDim').addEventListener('change',draw);
 $('W').addEventListener('input',draw);$('H').addEventListener('input',draw);
 show();
 </script>

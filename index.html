@@ -59,7 +59,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </style>
 </head><body>
 <div class="wrap">
-<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · PDF 상판치수선 간격 확대 · 2026-10-30 18:30</small></h1>
+<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · PDF 상판치수선 간격 추가 확대 · 2026-10-30 18:50</small></h1>
 <div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
@@ -441,11 +441,11 @@ function makeDxf(c){
 
 /* ---------- PDF (실제 크기 mm, 영문 숫자 표기) ---------- */
 function makePdf(c){
- const m=60,land=c.W>=c.H,PW=land?841.89:595.28,PH=land?595.28:841.89;
+ const m=72,land=c.W>=c.H,PW=land?841.89:595.28,PH=land?595.28:841.89;
  const k=Math.min(0.75*PW/(c.W+2*m),0.75*PH/(c.H+2*m)),pct=Math.round(100*k/(72/25.4)),fz=Math.round(PW/25);
  const ox=(PW-(c.W+2*m)*k)/2,oy=(PH-(c.H+2*m)*k)/2;
  const X=x=>((m+x)*k).toFixed(2),Y=y=>((m+c.H-y)*k).toFixed(2);
- const OFF=22;
+ const OFF=32;
  let s='2.4 w\n';
  if(c.rr>0){const r=c.rr,q=0.5523*r,W=c.W,H=c.H,P=(x,y)=>X(x)+' '+Y(y);
   s+=`${P(r,0)} m ${P(W-r,0)} l ${P(W-r+q,0)} ${P(W,r-q)} ${P(W,r)} c ${P(W,H-r)} l ${P(W,H-r+q)} ${P(W-r+q,H)} ${P(W-r,H)} c ${P(r,H)} l ${P(r-q,H)} ${P(0,H-r+q)} ${P(0,H-r)} c ${P(0,r)} l ${P(0,r-q)} ${P(r-q,0)} ${P(r,0)} c h S\n`;

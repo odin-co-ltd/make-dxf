@@ -59,7 +59,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </style>
 </head><body>
 <div class="wrap">
-<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · PDF 파일명 테두리 없음 · 2026-10-30 17:30</small></h1>
+<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · PDF 상판·타공 굵은선 · 2026-10-30 18:10</small></h1>
 <div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
@@ -445,7 +445,7 @@ function makePdf(c){
  const k=Math.min(0.75*PW/(c.W+2*m),0.75*PH/(c.H+2*m)),pct=Math.round(100*k/(72/25.4)),fz=Math.round(PW/25);
  const ox=(PW-(c.W+2*m)*k)/2,oy=(PH-(c.H+2*m)*k)/2;
  const X=x=>((m+x)*k).toFixed(2),Y=y=>((m+c.H-y)*k).toFixed(2);
- let s='0.8 w\n';
+ let s='2.4 w\n';
  if(c.rr>0){const r=c.rr,q=0.5523*r,W=c.W,H=c.H,P=(x,y)=>X(x)+' '+Y(y);
   s+=`${P(r,0)} m ${P(W-r,0)} l ${P(W-r+q,0)} ${P(W,r-q)} ${P(W,r)} c ${P(W,H-r)} l ${P(W,H-r+q)} ${P(W-r+q,H)} ${P(W-r,H)} c ${P(r,H)} l ${P(r-q,H)} ${P(0,H-r+q)} ${P(0,H-r)} c ${P(0,r)} l ${P(0,r-q)} ${P(r-q,0)} ${P(r,0)} c h S\n`;
  }else s+=`${X(0)} ${Y(c.H)} ${(c.W*k).toFixed(2)} ${(c.H*k).toFixed(2)} re S\n`;
@@ -454,20 +454,20 @@ function makePdf(c){
   s+=it.pts.map((p,j)=>`${X(p[0])} ${Y(p[1])} ${j?'l':'m'}`).join('\n')+'\nh S\n';
   if(c.items.length>1)s+=T((((m+it.cen[0])*k)-fz*0.3).toFixed(2),(((m+c.H-it.cen[1])*k)-fz*0.3).toFixed(2),String(i+1),fz);
  });
- if(c.jj>0){s+='0.5 w 0.4 G [6 4] 0 d\n';jjSegs(c).forEach(q=>{s+=`${X(q[0][0])} ${Y(q[0][1])} m ${X(q[1][0])} ${Y(q[1][1])} l S\n`;});s+='[] 0 d 0 G 0.8 w\n';
+ if(c.jj>0){s+='0.5 w 0.4 G [6 4] 0 d\n';jjSegs(c).forEach(q=>{s+=`${X(q[0][0])} ${Y(q[0][1])} m ${X(q[1][0])} ${Y(q[1][1])} l S\n`;});s+='[] 0 d 0 G 2.4 w\n';
   s+=T((((m+c.W*0.6)*k)).toFixed(2),(((m+c.H-c.jj)*k)+2).toFixed(2),'Jjoldae '+(+c.jj.toFixed(1)),Math.max(7,Math.round(fz*0.5)));}
  if(c.rr>0&&c.dim){const rd=rrDims(c),sz1=Math.max(7,Math.round(fz*0.5));
   s+='0.3 w 0.7 0.3 0.1 RG\n';
   rd.segs.forEach(q=>{s+=`${X(q[0][0])} ${Y(q[0][1])} m ${X(q[1][0])} ${Y(q[1][1])} l S\n`;
    arrowSegs(q[0],q[1],Math.max(c.W,c.H)/90).slice(0,2).forEach(a=>{s+=`${X(a[0][0])} ${Y(a[0][1])} m ${X(a[1][0])} ${Y(a[1][1])} l S\n`;});});
-  s+='0 G 0.8 w\n';
+  s+='0 G 2.4 w\n';
   rd.labs.forEach(l=>{s+=T(((m+l.x)*k+(l.dx<0?4:-sz1*2.2)).toFixed(2),((m+c.H-l.y)*k+(l.dy<0?-sz1*1.2:3)).toFixed(2),l.t,sz1);});}
  if(c.dim){
   const d=dimsFor(c,false),sz=Math.max(7,Math.round(fz*0.5));
   s+='0.3 w 0.7 0.3 0.1 RG\n';
   d.L.forEach(l=>{s+=`${X(l[0][0])} ${Y(l[0][1])} m ${X(l[1][0])} ${Y(l[1][1])} l S\n`;
    arrowSegs(l[0],l[1],Math.max(c.W,c.H)/60).forEach(q=>{s+=`${X(q[0][0])} ${Y(q[0][1])} m ${X(q[1][0])} ${Y(q[1][1])} l S\n`;});});
-  s+='0 G 0.8 w\n';
+  s+='0 G 2.4 w\n';
   d.T.forEach(t=>{const x=(m+t.x)*k,y=(m+c.H-t.y)*k;
    s+=t.dir==='h'?T((x-sz*0.9).toFixed(2),(y+2).toFixed(2),t.t,sz):T((x+3).toFixed(2),(y-sz*0.3).toFixed(2),t.t,sz);});
  }
@@ -475,7 +475,7 @@ function makePdf(c){
   s+='0.3 w 0 G\n';
   sd.forEach(q=>{s+=`${X(q[0][0])} ${Y(q[0][1])} m ${X(q[1][0])} ${Y(q[1][1])} l S\n`;});
   [sd[0],sd[3]].forEach(q=>arrowSegs(q[0],q[1],4).forEach(a=>{s+=`${X(a[0][0])} ${Y(a[0][1])} m ${X(a[1][0])} ${Y(a[1][1])} l S\n`;}));
-  s+='0.8 w\n';}
+  s+='2.4 w\n';}
  {const fd=Math.max(9,Math.round(fz*0.6)),wt=String(+c.W.toFixed(1)),ht=String(+c.H.toFixed(1));
   s+=T(((m+c.W/2)*k-wt.length*fd*0.28).toFixed(2),(4*k).toFixed(2),wt,fd);
   s+=`BT /F1 ${fd} Tf 0 1 -1 0 ${((m-12-2.5)*k).toFixed(2)} ${((m+c.H/2)*k-ht.length*fd*0.28).toFixed(2)} Tm (${ht}) Tj ET\n`;}

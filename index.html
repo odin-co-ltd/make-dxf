@@ -59,7 +59,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </style>
 </head><body>
 <div class="wrap">
-<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · PDF 상판·타공 굵은선 · 2026-10-30 18:10</small></h1>
+<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · PDF 상판치수선 간격 확대 · 2026-10-30 18:30</small></h1>
 <div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
@@ -445,6 +445,7 @@ function makePdf(c){
  const k=Math.min(0.75*PW/(c.W+2*m),0.75*PH/(c.H+2*m)),pct=Math.round(100*k/(72/25.4)),fz=Math.round(PW/25);
  const ox=(PW-(c.W+2*m)*k)/2,oy=(PH-(c.H+2*m)*k)/2;
  const X=x=>((m+x)*k).toFixed(2),Y=y=>((m+c.H-y)*k).toFixed(2);
+ const OFF=22;
  let s='2.4 w\n';
  if(c.rr>0){const r=c.rr,q=0.5523*r,W=c.W,H=c.H,P=(x,y)=>X(x)+' '+Y(y);
   s+=`${P(r,0)} m ${P(W-r,0)} l ${P(W-r+q,0)} ${P(W,r-q)} ${P(W,r)} c ${P(W,H-r)} l ${P(W,H-r+q)} ${P(W-r+q,H)} ${P(W-r,H)} c ${P(r,H)} l ${P(r-q,H)} ${P(0,H-r+q)} ${P(0,H-r)} c ${P(0,r)} l ${P(0,r-q)} ${P(r-q,0)} ${P(r,0)} c h S\n`;
@@ -471,14 +472,14 @@ function makePdf(c){
   d.T.forEach(t=>{const x=(m+t.x)*k,y=(m+c.H-t.y)*k;
    s+=t.dir==='h'?T((x-sz*0.9).toFixed(2),(y+2).toFixed(2),t.t,sz):T((x+3).toFixed(2),(y-sz*0.3).toFixed(2),t.t,sz);});
  }
- {const off=12,sd=sizeDims(c,off);
+ {const sd=sizeDims(c,OFF);
   s+='0.3 w 0 G\n';
   sd.forEach(q=>{s+=`${X(q[0][0])} ${Y(q[0][1])} m ${X(q[1][0])} ${Y(q[1][1])} l S\n`;});
   [sd[0],sd[3]].forEach(q=>arrowSegs(q[0],q[1],4).forEach(a=>{s+=`${X(a[0][0])} ${Y(a[0][1])} m ${X(a[1][0])} ${Y(a[1][1])} l S\n`;}));
   s+='2.4 w\n';}
  {const fd=Math.max(9,Math.round(fz*0.6)),wt=String(+c.W.toFixed(1)),ht=String(+c.H.toFixed(1));
-  s+=T(((m+c.W/2)*k-wt.length*fd*0.28).toFixed(2),(4*k).toFixed(2),wt,fd);
-  s+=`BT /F1 ${fd} Tf 0 1 -1 0 ${((m-12-2.5)*k).toFixed(2)} ${((m+c.H/2)*k-ht.length*fd*0.28).toFixed(2)} Tm (${ht}) Tj ET\n`;}
+  s+=T(((m+c.W/2)*k-wt.length*fd*0.28).toFixed(2),((m-OFF)*k-fd*1.05).toFixed(2),wt,fd);
+  s+=`BT /F1 ${fd} Tf 0 1 -1 0 ${((m-OFF-2.5)*k).toFixed(2)} ${((m+c.H/2)*k-ht.length*fd*0.28).toFixed(2)} Tm (${ht}) Tj ET\n`;}
  
  const note1=c.items.map((it,i)=>(c.items.length>1?'#'+(i+1)+' ':'Hole: ')+it.pdfLabel).join('  |  ');
  const note2='Origin: bottom-left, unit mm, A4 fit, approx 1:'+(100/pct).toFixed(1),nz=Math.round(fz*0.6);

@@ -59,7 +59,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </style>
 </head><body>
 <div class="wrap">
-<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · PDF 상판치수선 간격 추가 확대 · 2026-10-30 18:50</small></h1>
+<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · 굵은선 DXF 변환 추가 · 2026-10-30 19:40</small></h1>
 <div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
@@ -158,6 +158,13 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 <div class="small ink" style="margin:0 0 8px">기계에 넣을 파일명입니다. PDF 맨 아래 가운데에 인쇄됩니다. 영문, 숫자, 밑줄(_), 하이픈(-)만 인쇄되고 한글은 PDF 글꼴 제한으로 빠집니다. 비워 두면 아무것도 인쇄되지 않습니다.</div>
 <button class="big gray" id="bPdf">PDF 받기 (거래처 전달용)</button>
 <div class="status" id="status">DXF 좌표 기준은 상판 왼쪽 아래 모서리가 0,0이며 단위는 mm입니다.</div></div>
+
+<div class="card"><h2><span class="num">7</span>인쇄용 굵은 선 DXF 만들기</h2>
+<div class="small ink" style="margin:0 0 8px">이 앱에서 받은 DXF 파일을 넣으면, 상판 바깥선과 타공선만 굵게 바꿔서 새 파일로 받습니다. 치수선과 나머지는 그대로 둡니다. 오토캐드에서 인쇄할 때 쓰는 파일이며, 기계(VCarve)에는 원래 DXF를 쓰십시오.</div>
+<div class="row"><label for="thickFile">DXF 파일</label><input id="thickFile" type="file" accept=".dxf" style="width:auto;flex:1;text-align:left"></div>
+<div class="row"><label for="thickW">선 굵기(mm)</label><input id="thickW" type="number" min="0" step="0.5" placeholder="비우면 자동" style="width:120px"></div>
+<button class="big gray" id="bThick">굵은 선으로 바꿔서 받기</button>
+<div class="status" id="thickMsg">굵기를 비워 두면 상판 크기에 맞춰 자동으로 정합니다. 숫자는 도면 mm 기준이며, 클수록 굵습니다.</div></div>
 </div>
 <script>
 const $=id=>document.getElementById(id);
@@ -513,6 +520,84 @@ function save(filename,data){
   st.textContent=filename+' 파일을 받았습니다. 다운로드 폴더를 확인해 주십시오.';
  }catch(e){st.textContent='파일을 받지 못했습니다. 다시 눌러 주십시오.';}
 }
+
+function thickenDxf(text,wUser){
+ const L=text.replace(/\r/g,'').split('\n');const P=[];
+ for(let i=0;i+1<L.length;i+=2)P.push([parseInt(L[i].trim(),10),L[i+1].trim()]);
+ let es=-1;for(let i=0;i+1<P.length;i++)if(P[i][0]===0&&P[i][1]==='SECTION'&&P[i+1][0]===2&&P[i+1][1]==='ENTITIES'){es=i+2;break;}
+ if(es<0)return null;
+ let ee=-1;for(let i=es;i<P.length;i++)if(P[i][0]===0&&P[i][1]==='ENDSEC'){ee=i;break;}
+ if(ee<0)return null;
+ const chunks=[];let cur=null;
+ for(let i=es;i<ee;i++){if(P[i][0]===0){cur=[];chunks.push(cur);}if(cur)cur.push(P[i]);}
+ const val=(ch,c)=>{const q=ch.find(x=>x[0]===c);return q?parseFloat(q[1]):NaN;};
+ const lay=ch=>{const q=ch.find(x=>x[0]===8);return q?q[1]:'';};
+ const keep=[],segs={OUTLINE:[],HOLE:[]},circ=[];let n=0;
+ chunks.forEach(ch=>{
+  const t=ch[0][1],ly=lay(ch);
+  if((ly==='OUTLINE'||ly==='HOLE')&&(t==='LINE'||t==='ARC'||t==='CIRCLE')){
+   if(t==='LINE')segs[ly].push({a:[val(ch,10),val(ch,20)],b:[val(ch,11),val(ch,21)],bg:0});
+   else if(t==='ARC'){const cx=val(ch,10),cy=val(ch,20),r=val(ch,40),a0=val(ch,50),a1=val(ch,51),R=Math.PI/180,sw=(((a1-a0)%360)+360)%360;
+    segs[ly].push({a:[cx+r*Math.cos(a0*R),cy+r*Math.sin(a0*R)],b:[cx+r*Math.cos(a1*R),cy+r*Math.sin(a1*R)],bg:Math.tan(sw*R/4)});}
+   else circ.push({ly,c:[val(ch,10),val(ch,20)],r:val(ch,40)});
+   n++;
+  }else keep.push(ch);
+ });
+ if(!n)return null;
+ let xmin=1e9,xmax=-1e9,ymin=1e9,ymax=-1e9;
+ const ext=p=>{xmin=Math.min(xmin,p[0]);xmax=Math.max(xmax,p[0]);ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);};
+ segs.OUTLINE.forEach(s=>{ext(s.a);ext(s.b);});
+ if(xmax<xmin){['HOLE'].forEach(k=>segs[k].forEach(s=>{ext(s.a);ext(s.b);}));circ.forEach(c=>{ext([c.c[0]-c.r,c.c[1]-c.r]);ext([c.c[0]+c.r,c.c[1]+c.r]);});}
+ const big=Math.max(xmax-xmin,ymax-ymin);
+ const w=wUser>0?wUser:Math.max(0.5,Math.round(big/400*10)/10);
+ const o=[];const g=(c,v)=>{o.push(String(c));o.push(String(v));};
+ const f=v=>(+v).toFixed(4),close=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1])<0.01;
+ const poly=(ly,vs,closed)=>{
+  g(0,'POLYLINE');g(8,ly);g(62,7);g(66,1);g(10,0);g(20,0);g(30,0);g(40,f(w));g(41,f(w));g(70,closed?1:0);
+  vs.forEach(v=>{g(0,'VERTEX');g(8,ly);g(10,f(v.p[0]));g(20,f(v.p[1]));g(30,0);g(40,f(w));g(41,f(w));g(42,f(v.bg));});
+  g(0,'SEQEND');g(8,ly);
+ };
+ let pc=0;
+ ['OUTLINE','HOLE'].forEach(ly=>{
+  const S=segs[ly],used=S.map(()=>false);
+  for(let i=0;i<S.length;i++){
+   if(used[i])continue;used[i]=true;
+   const ch=[{a:S[i].a,b:S[i].b,bg:S[i].bg}];
+   for(let again=true;again;){
+    again=false;const end=ch[ch.length-1].b;
+    for(let j=0;j<S.length;j++){
+     if(used[j])continue;
+     if(close(S[j].a,end)){used[j]=true;ch.push({a:S[j].a,b:S[j].b,bg:S[j].bg});again=true;break;}
+     if(close(S[j].b,end)){used[j]=true;ch.push({a:S[j].b,b:S[j].a,bg:-S[j].bg});again=true;break;}
+    }
+   }
+   const closed=ch.length>1&&close(ch[ch.length-1].b,ch[0].a);
+   const vs=ch.map(s=>({p:s.a,bg:s.bg}));
+   if(!closed)vs.push({p:ch[ch.length-1].b,bg:0});
+   poly(ly,vs,closed);pc++;
+  }
+ });
+ circ.forEach(c=>{poly(c.ly,[{p:[c.c[0]-c.r,c.c[1]],bg:1},{p:[c.c[0]+c.r,c.c[1]],bg:1}],true);pc++;});
+ const out=[];
+ P.slice(0,es).forEach(q=>out.push(q[0],q[1]));
+ keep.forEach(ch=>ch.forEach(q=>out.push(q[0],q[1])));
+ out.push(...o);
+ P.slice(ee).forEach(q=>out.push(q[0],q[1]));
+ return {text:out.join('\n')+'\n',w,count:pc};
+}
+$('bThick').onclick=()=>{
+ const m=$('thickMsg'),fl=$('thickFile').files[0];
+ if(!fl){m.textContent='먼저 DXF 파일을 골라 주십시오.';return;}
+ const rd=new FileReader();
+ rd.onerror=()=>{m.textContent='파일을 읽지 못했습니다. 다시 골라 주십시오.';};
+ rd.onload=()=>{
+  let r=null;try{r=thickenDxf(String(rd.result),parseFloat($('thickW').value));}catch(e){r=null;}
+  if(!r){m.textContent='이 앱에서 받은 DXF가 아닌 것 같아 바꾸지 못했습니다. 이 앱의 DXF 파일을 골라 주십시오.';return;}
+  save(fl.name.replace(/\.dxf$/i,'')+'_thick.dxf',r.text);
+  m.textContent='굵은 선 '+r.w+'mm로 바꿔서 받았습니다. 상판 바깥선과 타공선 '+r.count+'개 묶음이 바뀌었습니다.';
+ };
+ rd.readAsText(fl);
+};
 $('bDxf').onclick=()=>{const c=calc();if(!c.ok)return;save(fname(c,'dxf'),makeDxf(c));};
 $('bPdf').onclick=()=>{const c=calc();if(!c.ok)return;save(fname(c,'pdf'),makePdf(c));};
 

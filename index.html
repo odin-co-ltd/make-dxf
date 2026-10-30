@@ -28,6 +28,7 @@ button.big{font-size:23px;padding:16px;width:100%;border:0;border-radius:14px;ba
 button.gray{background:var(--gray-btn);color:var(--ink)}
 button.big:disabled{opacity:.5}
 svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);border-radius:14px;display:block}
+[hidden]{display:none!important}
 .sv-panel{fill:var(--card);stroke:var(--title);stroke-width:3}
 .sv-hole{fill:var(--hole);stroke:var(--title);stroke-width:3}
 .sv-hole.cur{stroke:var(--dot);stroke-width:5}
@@ -58,7 +59,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </style>
 </head><body>
 <div class="wrap">
-<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · 화살표 치수선 · 2026-10-29 20:40</small></h1>
+<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · 구멍 0개 가능 · 2026-10-30 12:40</small></h1>
 <div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
@@ -66,13 +67,24 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
  <label for="W" style="flex:none">가로</label><input id="W" type="number" inputmode="decimal" value="1200" style="width:110px">
  <label style="flex:none;text-align:center;width:30px">x</label>
  <label for="H" style="flex:none">세로</label><input id="H" type="number" inputmode="decimal" value="800" style="width:110px">
- <span style="width:auto">mm</span></div></div>
+ <span style="width:auto">mm</span></div>
+<details id="opts" style="margin-top:6px"><summary id="optsSum" style="cursor:pointer;font-size:13px;color:#8a6a4a">추가 옵션 보기 (모서리 둥글게, 쫄대)</summary>
+<label style="display:block;margin:6px 0"><input type="checkbox" id="oRound"> 상판 모서리 둥글게 (네 모서리)</label>
+<div class="row" id="rRound" hidden><label for="rr">모서리 반지름</label><input id="rr" type="number" inputmode="decimal" value="30"><span>mm</span></div>
+<label style="display:block;margin:6px 0"><input type="checkbox" id="oJul"> 쫄대 선 표시 (점선)</label>
+<div id="rJul" hidden>
+ <div class="row"><label for="jw">쫄대 폭</label><input id="jw" type="number" inputmode="decimal" value="120"><span>mm</span></div>
+ <div class="row"><label for="jm">쫄대 위치</label><select id="jm"><option value="TB">위아래 두 곳</option><option value="ALL">사방 (네 곳)</option></select></div>
+</div>
+</details>
+</div>
 
 <div class="card"><h2><span class="num">2</span>구멍 개수와 종류</h2>
 <div class="small ink">구멍이 여러 개면 추가해서 구멍마다 종류와 위치를 따로 정합니다.</div>
 <div class="tabs wrapt" id="holeTabs"></div>
 <div class="mini"><button id="addHole" type="button">구멍 추가</button><button id="delHole" type="button">이 구멍 지우기</button></div>
 <div id="curLab" class="curlab"></div>
+<div id="holeEdit">
 <div class="tabs" id="kinds">
  <button data-k="round">원형</button>
  <button data-k="rect">사각형</button>
@@ -103,8 +115,9 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
  </div>
  <div class="small">모델 치수는 도면에서 읽은 값이며 실물 확인이 필요합니다.</div></div>
 </div>
+</div>
 
-<div class="card"><h2><span class="num">3</span><span id="h3">구멍 위치</span></h2>
+<div class="card" id="card3"><h2><span class="num">3</span><span id="h3">구멍 위치</span></h2>
 <div id="f-ref">
  <div style="margin-bottom:4px">기준점 (이 점을 기준으로 위치를 잡습니다)</div>
  <div class="tabs" id="refs">
@@ -127,7 +140,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 <svg id="sv" viewBox="0 0 900 520" role="img" aria-label="상판과 구멍 미리보기"></svg>
 <div id="msg" class="small" style="margin-top:6px"></div></div>
 
-<div class="card"><h2><span class="num">5</span>참고 도면 확인</h2>
+<div class="card" id="card5"><h2><span class="num">5</span>참고 도면 확인</h2>
 <div class="small ink">제조사에서 받은 타공 도면 사진을 넣으면, 만든 구멍 모양과 나란히 놓고 비교할 수 있습니다. 사진은 이 기기 안에서만 보이고 어디에도 올라가지 않습니다.</div>
 <label class="filebtn" id="fileLab">도면 사진 넣기<input type="file" id="refImg" accept="image/*"></label>
 <div class="cmp">
@@ -194,13 +207,13 @@ const HC=()=>holes[cur];
 /* ---------- 입력칸 <-> 구멍 데이터 ---------- */
 fillModels();
 function readUI(){
- const h=HC();
+ const h=HC();if(!h)return;
  h.dia=$('dia').value;h.hw=$('hw').value;h.hh=$('hh').value;
  h.rd=$('rd').value;h.tw=$('tw').value;h.th=$('th').value;h.model=$('model').value;h.maker=$('maker').value;
  h.hx=$('hx').value;h.hy=$('hy').value;
 }
 function writeUI(){
- const h=HC();
+ const h=HC();if(!h)return;
  $('dia').value=h.dia;$('hw').value=h.hw;$('hh').value=h.hh;
  $('rd').value=h.rd;$('tw').value=h.tw;$('th').value=h.th;fillModels(h.model,h.maker||undefined);
  $('hx').value=h.hx;$('hy').value=h.hy;
@@ -278,6 +291,9 @@ function calc(){
  c.items.forEach((it,i)=>{if(!it.ok)m.push((i+1)+'번 구멍: '+it.why);});
  for(let i=0;i<c.items.length;i++)for(let j=i+1;j<c.items.length;j++)
   if(c.items[i].ok&&c.items[j].ok&&overlap(c.items[i].pts,c.items[j].pts))m.push((i+1)+'번 구멍과 '+(j+1)+'번 구멍이 겹칩니다');
+ c.rr=$('oRound').checked?Math.max(0,Math.min(+$('rr').value||0,Math.min(W,H)/2)):0;
+ c.jj=$('oJul').checked?Math.max(0,Math.min(+$('jw').value||0,Math.min(W,H)/2-1)):0;
+ c.jm=$('jm').value;
  c.msg=m.join(' / ');c.ok=m.length===0;c.dim=$('showDim').checked;
  return c;
 }
@@ -291,6 +307,16 @@ function arrowSegs(a,b,al){
   out.push([p,[bx-u[1]*w,by+u[0]*w]],[p,[bx+u[1]*w,by-u[0]*w]]);
  }
  return out;
+}
+function rrPath(W,H,r){ // 둥근 모서리 외곽 (y는 위에서 아래로), SVG용
+ if(!(r>0))return null;
+ return `M${r} 0H${W-r}A${r} ${r} 0 0 1 ${W} ${r}V${H-r}A${r} ${r} 0 0 1 ${W-r} ${H}H${r}A${r} ${r} 0 0 1 0 ${H-r}V${r}A${r} ${r} 0 0 1 ${r} 0Z`;
+}
+function jjSegs(c){ // 쫄대 점선 (y는 위에서 아래로)
+ if(!(c.jj>0))return [];
+ const j=c.jj,W=c.W,H=c.H,r=[[[0,j],[W,j]],[[0,H-j],[W,H-j]]];
+ if(c.jm==='ALL')r.push([[j,0],[j,H]],[[W-j,0],[W-j,H]]);
+ return r;
 }
 function dimsFor(c,withLabel){
  const f=v=>String(+(+v).toFixed(1)),L=[],T=[],B=c.items.map(it=>it.ok?bbox(it.pts):null);
@@ -322,8 +348,10 @@ function draw(){
  const c=calc(),W=c.W,H=c.H;
  if(!(W>0&&H>0)){$('sv').innerHTML='';draw2(c);$('msg').textContent=c.msg;$('bDxf').disabled=$('bPdf').disabled=true;return;}
  const mx=80,my=60,aw=740,ah=380,s=Math.min(aw/W,ah/H),pw=W*s,ph=H*s;
- let o=`<rect class="sv-panel" x="${mx}" y="${my}" width="${pw}" height="${ph}"/>`;
+ let o=c.rr>0?`<rect class="sv-panel" x="${mx}" y="${my}" width="${pw}" height="${ph}" rx="${c.rr*s}" ry="${c.rr*s}"/>`:`<rect class="sv-panel" x="${mx}" y="${my}" width="${pw}" height="${ph}"/>`;
  const X=v=>mx+v*s,Y=v=>my+v*s,many=c.items.length>1;
+ jjSegs(c).forEach(q=>{o+=`<line x1="${X(q[0][0])}" y1="${Y(q[0][1])}" x2="${X(q[1][0])}" y2="${Y(q[1][1])}" stroke="#7a7a7a" stroke-width="1.6" stroke-dasharray="10 6"/>`;});
+ if(c.jj>0)o+=`<text x="${X(W)-6}" y="${Y(c.jj)-6}" text-anchor="end" font-size="20" fill="#666">쫄대 ${+c.jj.toFixed(1)}</text>`;
  c.items.forEach((it,i)=>{
   if(!it.ok)return;
   o+=`<polygon class="sv-hole${i===cur?' cur':''}" points="${it.pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')}"/>`;
@@ -351,18 +379,23 @@ function makeDxf(c){
  const f=v=>(+v).toFixed(3),Y=y=>c.H-y;
  const o=[];const g=(code,val)=>{o.push(String(code));o.push(String(val));};
  g(0,'SECTION');g(2,'HEADER');g(9,'$ACADVER');g(1,'AC1009');g(9,'$INSUNITS');g(70,4);g(0,'ENDSEC');
- g(0,'SECTION');g(2,'TABLES');g(0,'TABLE');g(2,'LAYER');g(70,3);
- for(const n of ['OUTLINE','HOLE','DIM']){g(0,'LAYER');g(2,n);g(70,0);g(62,7);g(6,'CONTINUOUS');}
+ g(0,'SECTION');g(2,'TABLES');g(0,'TABLE');g(2,'LTYPE');g(70,2);g(0,'LTYPE');g(2,'CONTINUOUS');g(70,0);g(3,'Solid line');g(72,65);g(73,0);g(40,0);g(0,'LTYPE');g(2,'DASHED');g(70,0);g(3,'Dashed');g(72,65);g(73,2);g(40,12);g(49,8);g(49,-4);g(0,'ENDTAB');g(0,'TABLE');g(2,'LAYER');g(70,4);
+ for(const n of ['OUTLINE','HOLE','DIM','REF']){g(0,'LAYER');g(2,n);g(70,0);g(62,n==='REF'?1:7);g(6,'CONTINUOUS');}
  g(0,'ENDTAB');g(0,'ENDSEC');
  g(0,'SECTION');g(2,'ENTITIES');
  const line=(l,a,b)=>{g(0,'LINE');g(8,l);g(62,7);g(10,f(a[0]));g(20,f(a[1]));g(30,0);g(11,f(b[0]));g(21,f(b[1]));g(31,0);};
  const W=c.W,H=c.H;
- [[0,0],[W,0],[W,H],[0,H]].forEach((p,i,a)=>line('OUTLINE',p,a[(i+1)%4]));
+ if(c.rr>0){const r=c.rr,arc=(cx,cy,a0,a1)=>{g(0,'ARC');g(8,'OUTLINE');g(62,7);g(10,f(cx));g(20,f(cy));g(30,0);g(40,f(r));g(50,f(a0));g(51,f(a1));};
+  line('OUTLINE',[r,0],[W-r,0]);line('OUTLINE',[W,r],[W,H-r]);line('OUTLINE',[W-r,H],[r,H]);line('OUTLINE',[0,H-r],[0,r]);
+  arc(r,r,180,270);arc(W-r,r,270,360);arc(W-r,H-r,0,90);arc(r,H-r,90,180);
+ }else [[0,0],[W,0],[W,H],[0,H]].forEach((p,i,a)=>line('OUTLINE',p,a[(i+1)%4]));
  for(const it of c.items)for(const e of it.ents){
   if(e.t==='L')line('HOLE',[e.a[0],Y(e.a[1])],[e.b[0],Y(e.b[1])]);
   if(e.t==='C'){g(0,'CIRCLE');g(8,'HOLE');g(62,7);g(10,f(e.c[0]));g(20,f(Y(e.c[1])));g(30,0);g(40,f(e.r));}
   if(e.t==='A'){const n=a=>((a%360)+360)%360;g(0,'ARC');g(8,'HOLE');g(62,7);g(10,f(e.c[0]));g(20,f(Y(e.c[1])));g(30,0);g(40,f(e.r));g(50,f(n(e.a0)));g(51,f(n(e.a1)));}
  }
+ jjSegs(c).forEach(q=>{g(0,'LINE');g(8,'REF');g(62,1);g(6,'DASHED');g(10,f(q[0][0]));g(20,f(Y(q[0][1])));g(30,0);g(11,f(q[1][0]));g(21,f(Y(q[1][1])));g(31,0);});
+ if(c.jj>0){const th0=Math.max(6,c.W/90);g(0,'TEXT');g(8,'REF');g(62,1);g(10,f(c.W*0.6));g(20,f(Y(c.jj-th0*1.4)));g(30,0);g(40,f(th0));g(1,'JJOLDAE '+(+c.jj.toFixed(1)));}
  if(c.dim){
   const d=dimsFor(c,true),fs=Math.max(6,c.W/90);
   d.L.forEach(l=>{line('DIM',[l[0][0],Y(l[0][1])],[l[1][0],Y(l[1][1])]);
@@ -380,12 +413,16 @@ function makePdf(c){
  const k=72/25.4,m=18,pw=(c.W+2*m)*k,ph=(c.H+2*m)*k,fz=Math.max(12,Math.round(pw/45));
  const X=x=>((m+x)*k).toFixed(2),Y=y=>((m+c.H-y)*k).toFixed(2);
  let s='0.8 w\n';
- s+=`${X(0)} ${Y(c.H)} ${(c.W*k).toFixed(2)} ${(c.H*k).toFixed(2)} re S\n`;
+ if(c.rr>0){const r=c.rr,q=0.5523*r,W=c.W,H=c.H,P=(x,y)=>X(x)+' '+Y(y);
+  s+=`${P(r,0)} m ${P(W-r,0)} l ${P(W-r+q,0)} ${P(W,r-q)} ${P(W,r)} c ${P(W,H-r)} l ${P(W,H-r+q)} ${P(W-r+q,H)} ${P(W-r,H)} c ${P(r,H)} l ${P(r-q,H)} ${P(0,H-r+q)} ${P(0,H-r)} c ${P(0,r)} l ${P(0,r-q)} ${P(r-q,0)} ${P(r,0)} c h S\n`;
+ }else s+=`${X(0)} ${Y(c.H)} ${(c.W*k).toFixed(2)} ${(c.H*k).toFixed(2)} re S\n`;
  const T=(x,y,t,sz)=>`BT /F1 ${sz} Tf ${x} ${y} Td (${t}) Tj ET\n`;
  c.items.forEach((it,i)=>{
   s+=it.pts.map((p,j)=>`${X(p[0])} ${Y(p[1])} ${j?'l':'m'}`).join('\n')+'\nh S\n';
   if(c.items.length>1)s+=T((((m+it.cen[0])*k)-fz*0.3).toFixed(2),(((m+c.H-it.cen[1])*k)-fz*0.3).toFixed(2),String(i+1),fz);
  });
+ if(c.jj>0){s+='0.5 w 0.4 G [6 4] 0 d\n';jjSegs(c).forEach(q=>{s+=`${X(q[0][0])} ${Y(q[0][1])} m ${X(q[1][0])} ${Y(q[1][1])} l S\n`;});s+='[] 0 d 0 G 0.8 w\n';
+  s+=T((((m+c.W*0.6)*k)).toFixed(2),(((m+c.H-c.jj)*k)+2).toFixed(2),'Jjoldae '+(+c.jj.toFixed(1)),Math.max(7,Math.round(fz*0.5)));}
  if(c.dim){
   const d=dimsFor(c,false),sz=Math.max(7,Math.round(fz*0.5));
   s+='0.3 w 0.7 0.3 0.1 RG\n';
@@ -414,7 +451,7 @@ function makePdf(c){
 }
 
 /* ---------- 받기 ---------- */
-function fname(c,ext){return `top_${c.W}x${c.H}_${c.items.length>1?c.items.length+'holes':holes[0].kind}.${ext}`;}
+function fname(c,ext){return `top_${c.W}x${c.H}_${c.items.length>1?c.items.length+'holes':(holes[0]?holes[0].kind:'nohole')}.${ext}`;}
 function save(filename,data){
  const st=$('status');
  try{
@@ -474,14 +511,17 @@ function renderTabs(){
   b.onclick=()=>{readUI();cur=i;show();};
   t.appendChild(b);
  });
- $('delHole').disabled=holes.length<=1;
+ $('delHole').disabled=holes.length<1;
  $('addHole').disabled=holes.length>=MAXH;
- $('curLab').textContent=holes.length>1?'지금 고르는 구멍: 구멍 '+(cur+1)+' (전체 '+holes.length+'개)':'';
+ $('curLab').textContent=holes.length>1?'지금 고르는 구멍: 구멍 '+(cur+1)+' (전체 '+holes.length+'개)':(holes.length===0?'구멍이 없습니다. 구멍이 필요하면 "구멍 추가"를 눌러 주십시오.':'');
  $('h3').textContent=holes.length>1?'구멍 위치 (구멍 '+(cur+1)+')':'구멍 위치';
 }
 function show(){
  const h=HC();
  $('twHint').textContent='';
+ const none=!h;
+ ['holeEdit','card3','card5'].forEach(id=>$(id).hidden=none);
+ if(none){renderTabs();draw();return;}
  writeUI();renderTabs();
  ['round','rect','ros'].forEach(k=>$('f-'+k).hidden=(k!==h.kind));
  $('f-ref').hidden=(h.kind!=='ros');
@@ -525,7 +565,7 @@ $('delModel').onclick=()=>{
  holes.forEach(h=>{if(h.model===v)h.model='c';else if(h.model!=='c'&&+h.model>+v)h.model=String(+h.model-1);});
  fillModels();$('modelNote').textContent='"'+nm+'" 모델을 지웠습니다.';show();
 };
-document.querySelectorAll('input[type=number]').forEach(i=>i.addEventListener('input',()=>{readUI();if(['rd','tw','th'].includes(i.id)){const q=HC();q.tp=0;q.sl=0;q.rt=0;}draw();const h=HC();if(h.kind==='ros'){const t=(+h.tw)-(+h.rd);$('twHint').textContent=t>0?'돌출부 길이는 자동 계산: '+t+' mm':'';}}));
+document.querySelectorAll('input[type=number]').forEach(i=>i.addEventListener('input',()=>{readUI();if(['rd','tw','th'].includes(i.id)){const q=HC();if(q){q.tp=0;q.sl=0;q.rt=0;}}draw();const h=HC();if(h&&h.kind==='ros'){const t=(+h.tw)-(+h.rd);$('twHint').textContent=t>0?'돌출부 길이는 자동 계산: '+t+' mm':'';}}));
 
 /* 구멍 추가: 지금 구멍을 복사해서 옆에 놓습니다 */
 $('addHole').onclick=()=>{
@@ -533,7 +573,7 @@ $('addHole').onclick=()=>{
  if(holes.length>=MAXH)return;
  const c=calc();
  if(!(c.W>0&&c.H>0))return;
- const n=Object.assign({},HC());n.pos='manual';
+ const n=Object.assign({},HC()||newHole());n.pos='manual';
  const base=(c.items[cur]&&c.items[cur].ok)?c.items[cur].man:[c.W/2,c.H/2];
  const gap=30,others=c.items.filter(i=>i.ok).map(i=>bbox(i.pts));
  let best=null,bd=1e18;
@@ -551,10 +591,12 @@ $('addHole').onclick=()=>{
  if(!best)$('status').textContent='빈 자리가 없어 겹쳐 놓였습니다. 위치를 직접 바꿔 주십시오.';
 };
 $('delHole').onclick=()=>{
- if(holes.length<=1)return;
+ if(holes.length<1)return;
  holes.splice(cur,1);cur=Math.max(0,cur-1);show();
 };
 $('showDim').addEventListener('change',draw);
+[['oRound','rRound'],['oJul','rJul']].forEach(([a,b])=>$(a).addEventListener('change',()=>{$(b).hidden=!$(a).checked;{const u=[];if($('oRound').checked)u.push('모서리 둥글게');if($('oJul').checked)u.push('쫄대');$('optsSum').textContent=u.length?'추가 옵션 ('+u.join(', ')+' 사용 중)':'추가 옵션 보기 (모서리 둥글게, 쫄대)';}draw();}));
+$('jm').addEventListener('change',draw);
 $('W').addEventListener('input',draw);$('H').addEventListener('input',draw);
 show();
 </script>

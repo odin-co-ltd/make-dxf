@@ -59,7 +59,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 </style>
 </head><body>
 <div class="wrap">
-<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · 굵은선 DXF 변환 추가 · 2026-10-30 19:40</small></h1>
+<h1>상판 도면 만들기 <small style="font-size:12px;font-weight:400;opacity:.7">구멍 여러 개 지원 · 돌출부 세로치수 추가 · 2026-11-02 10:20</small></h1>
 <div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
@@ -256,7 +256,9 @@ function calcHole(h,W,H){
   if(rt)for(let i=1;i<24;i++){const u=-Math.PI/2+Math.PI*i/24;pts.push(P(ae+th/2*Math.cos(u),th/2*Math.sin(u)));}
   if(!pts.every(p=>p[0]>=-0.01&&p[0]<=W+0.01&&p[1]>=-0.01&&p[1]<=H+0.01))return bad('상판 밖으로 나갑니다');
   const a=Math.atan2(-dv[1],dv[0])*180/Math.PI;
-  return {ok:true,kind:'ros',pts,ref:[px,py],man:[px,py],cen:[cx,cy],
+  const am=tp?ae-sl/2:(dx+ae)/2;let tA=P(am,th/2),tB=P(am,-th/2);const tv=Math.abs(dv[0])>0.5;
+  if(tv?tA[1]>tB[1]:tA[0]>tB[0]){const q=tA;tA=tB;tB=q;}
+  return {ok:true,kind:'ros',pts,ref:[px,py],man:[px,py],cen:[cx,cy],tabDim:{a:tA,b:tB,t:th,dir:tv?'v':'h'},
    label:'Ø'+D+' / 전체 '+L+' x '+th,pdfLabel:'dia '+D+' / total '+L+' x '+th,lx:cx,ly:cy+R,
    ents:[
     {t:'L',a:P(R+tw,th/2),b:P(R+tw,-th/2)},
@@ -356,6 +358,7 @@ function dimsFor(c,withLabel){
   if(c.H-b[3]>0.5&&!blk(q=>q[1]>=b[3]-0.5&&q[0]<cx&&cx<q[2]))add([cx,b[3]],[cx,c.H],c.H-b[3],'v');
   add([b[0],cy],[b[2],cy],b[2]-b[0],'h',.3);
   add([cx,b[1]],[cx,b[3]],b[3]-b[1],'v',.2);
+  {const td=c.items[i].tabDim;if(td){if(td.dir==='v')add(td.a,td.b,td.t,'v',.75);else{L.push([td.a,td.b]);T.push({x:td.a[0]-Math.max(c.W,c.H)*0.025,y:td.a[1],t:f(td.t),dir:'h'});}}}
   if(withLabel)T.push({x:cx,y:b[3],t:(c.items.length>1?'#'+(i+1)+' ':'')+c.items[i].pdfLabel,dir:'b'});
  });
  for(let i=0;i<B.length;i++)for(let j=i+1;j<B.length;j++){

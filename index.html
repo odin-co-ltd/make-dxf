@@ -32,6 +32,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 .sv-panel{fill:var(--card);stroke:var(--title);stroke-width:3}
 .sv-hole{fill:var(--hole);stroke:var(--title);stroke-width:3}
 .sv-hole.cur{stroke:var(--dot);stroke-width:5}
+.sv-hole.mir{stroke-dasharray:10 6}
 .sv-idx{fill:var(--ink);font-size:34px;font-weight:bold}
 .sv-dot{fill:var(--dot)}
 .sv-dim{fill:var(--ink);font-size:31px}
@@ -63,10 +64,14 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 <div class="note">숫자를 바꾸면 4번 그림이 바로 바뀝니다. 6번에서 DXF와 PDF 파일을 받을 수 있습니다.</div>
 
 <div class="card"><h2><span class="num">1</span>상판 크기</h2>
+<div class="tabs" id="shapes" style="margin-bottom:6px">
+ <button data-s="rect" class="on" type="button">사각 상판</button>
+ <button data-s="round" type="button">원형 상판</button>
+</div>
 <div class="row" style="gap:6px">
- <label for="W" style="flex:none">가로</label><input id="W" type="number" inputmode="decimal" value="1200" style="width:110px">
- <label style="flex:none;text-align:center;width:30px">x</label>
- <label for="H" style="flex:none">세로</label><input id="H" type="number" inputmode="decimal" value="800" style="width:110px">
+ <label for="W" style="flex:none" id="lW">가로</label><input id="W" type="number" inputmode="decimal" value="1200" style="width:110px">
+ <label style="flex:none;text-align:center;width:30px" class="rectOnly">x</label>
+ <label for="H" style="flex:none" class="rectOnly">세로</label><input id="H" type="number" inputmode="decimal" value="800" style="width:110px" class="rectOnly">
  <span style="width:auto">mm</span></div>
 <details id="opts" style="margin-top:6px"><summary id="optsSum" style="cursor:pointer;font-size:13px;color:#8a6a4a">추가 옵션 보기 (모서리 둥글게, 쫄대)</summary>
 <label style="display:block;margin:6px 0"><input type="checkbox" id="oRound"> 상판 모서리 둥글게 (네 모서리)</label>
@@ -133,6 +138,8 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
  <div class="row"><label id="lx" for="hx">상판 왼쪽 끝에서 기준점까지</label><input id="hx" type="number" inputmode="decimal" value="600"><span>mm</span></div>
  <div class="row"><label id="ly" for="hy">상판 위쪽 끝에서 기준점까지</label><input id="hy" type="number" inputmode="decimal" value="400"><span>mm</span></div></div>
 <div id="f-center" class="small ink">정중앙은 기준점이 상판의 정가운데에 옵니다.</div>
+<label style="display:block;margin:10px 0 2px;padding:8px;border:1px dashed var(--line);border-radius:8px"><input type="checkbox" id="mir"> 좌우 대칭 구멍 자동으로 만들기<br><span class="small ink">이 구멍을 상판 가운데 세로선 기준으로 거울처럼 뒤집어 반대쪽에 하나 더 만듭니다. 이 구멍을 고치면 반대쪽도 같이 바뀝니다.</span></label>
+<div id="mirNote" class="small" style="color:#b0461f"></div>
 </div>
 
 <div class="card"><h2><span class="num">4</span>미리보기</h2>
@@ -247,7 +254,7 @@ function fillModels(sel,mk){
 }
 const MAXH=20;
 const newHole=()=>({kind:'ros',dia:'260',hw:'143',hh:'61',rd:'330',tw:'465',th:'108',model:'0',dir:'left',ref:'c',pos:'center',hx:'600',hy:'400'});
-let holes=[newHole()],cur=0;
+let holes=[newHole()],cur=0,SHAPE='rect';
 const HC=()=>holes[cur];
 
 /* ---------- 입력칸 <-> 구멍 데이터 ---------- */
@@ -256,13 +263,13 @@ function readUI(){
  const h=HC();if(!h)return;
  h.dia=$('dia').value;h.hw=$('hw').value;h.hh=$('hh').value;
  h.rd=$('rd').value;h.tw=$('tw').value;h.th=$('th').value;h.model=$('model').value;h.maker=$('maker').value;
- h.hx=$('hx').value;h.hy=$('hy').value;
+ h.hx=$('hx').value;h.hy=$('hy').value;h.mir=$('mir').checked;
 }
 function writeUI(){
  const h=HC();if(!h)return;
  $('dia').value=h.dia;$('hw').value=h.hw;$('hh').value=h.hh;
  $('rd').value=h.rd;$('tw').value=h.tw;$('th').value=h.th;fillModels(h.model,h.maker||undefined);
- $('hx').value=h.hx;$('hy').value=h.hy;
+ $('hx').value=h.hx;$('hy').value=h.hy;$('mir').checked=!!h.mir;
 }
 
 /* ---------- 계산: 화면 좌표(왼쪽 위가 0,0, 아래로 +) ---------- */
@@ -339,17 +346,33 @@ function overlap(A,B){
  for(let i=0;i<A.length;i++)for(let j=0;j<B.length;j++)if(segX(A[i],A[(i+1)%A.length],B[j],B[(j+1)%B.length]))return true;
  return inPoly(A[0],B)||inPoly(B[0],A);
 }
+/* 좌우 대칭: 상판 가운데 세로선 기준으로 거울처럼 뒤집은 구멍 (정중앙이면 같은 자리라 만들지 않음) */
+function mirrorHole(h,W){
+ if(h.pos==='center')return null;
+ const m=Object.assign({},h);
+ if(h.kind==='ros'){
+  m.hx=String(W-(+h.hx));
+  if(h.dir==='left'||h.dir==='right'){m.dir=h.dir==='left'?'right':'left';m.ref={a:'b',b:'a',c:'c'}[h.ref]||h.ref;}
+ }else{const hw=h.kind==='round'?+h.dia:+h.hw;m.hx=String(+(W-(+h.hx)-hw).toFixed(3));}
+ return m;
+}
 function calc(){
- const W=+$('W').value,H=+$('H').value;
- const c={W,H,items:[],ok:false,msg:''};
- if(!(W>0&&H>0)){c.msg='상판 가로와 세로를 넣어 주십시오.';return c;}
- c.items=holes.map(h=>calcHole(h,W,H));
+ const round=SHAPE==='round',W=+$('W').value,H=round?W:+$('H').value;
+ const c={W,H,round,items:[],ok:false,msg:''};
+ if(!(W>0&&H>0)){c.msg=round?'원형 상판 지름을 넣어 주십시오.':'상판 가로와 세로를 넣어 주십시오.';return c;}
+ c.items=holes.map((h,i)=>Object.assign(calcHole(h,W,H),{no:String(i+1)}));
+ holes.forEach((h,i)=>{if(!h.mir)return;const mh=mirrorHole(h,W);if(!mh)return;
+  const it=calcHole(mh,W,H);it.no=(i+1)+"'";it.mirOf=i;
+  if(it.ok&&c.items[i].ok&&Math.abs(it.cen[0]-c.items[i].cen[0])<0.01&&Math.abs(it.cen[1]-c.items[i].cen[1])<0.01)return; /* 가운데에 있어 같은 자리 */
+  c.items.push(it);});
+ /* 원형 상판: 구멍이 원 밖으로 나가는지 */
+ if(round){const R=W/2;c.items.forEach(it=>{if(it.ok&&it.pts.some(p=>Math.hypot(p[0]-R,p[1]-R)>R+0.01)){it.ok=false;it.why='원형 상판 밖으로 나갑니다';}});}
  const m=[];
- c.items.forEach((it,i)=>{if(!it.ok)m.push((i+1)+'번 구멍: '+it.why);});
+ c.items.forEach((it,i)=>{if(!it.ok)m.push(it.no+'번 구멍'+(it.mirOf!==undefined?'(대칭)':'')+': '+it.why);});
  for(let i=0;i<c.items.length;i++)for(let j=i+1;j<c.items.length;j++)
-  if(c.items[i].ok&&c.items[j].ok&&overlap(c.items[i].pts,c.items[j].pts))m.push((i+1)+'번 구멍과 '+(j+1)+'번 구멍이 겹칩니다');
- c.rr=$('oRound').checked?Math.max(0,Math.min(+$('rr').value||0,Math.min(W,H)/2)):0;
- c.jj=$('oJul').checked?Math.max(0,Math.min(+$('jw').value||0,Math.min(W,H)/2-1)):0;
+  if(c.items[i].ok&&c.items[j].ok&&overlap(c.items[i].pts,c.items[j].pts))m.push(c.items[i].no+'번 구멍과 '+c.items[j].no+'번 구멍이 겹칩니다');
+ c.rr=(!round&&$('oRound').checked)?Math.max(0,Math.min(+$('rr').value||0,Math.min(W,H)/2)):0;
+ c.jj=(!round&&$('oJul').checked)?Math.max(0,Math.min(+$('jw').value||0,Math.min(W,H)/2-1)):0;
  c.jm=$('jm').value;
  c.msg=m.join(' / ');c.ok=m.length===0;c.dim=$('showDim').checked;
  return c;
@@ -386,10 +409,16 @@ function rrDims(c){ // 귀돌리기 반지름 치수 (y는 위에서 아래로)
 }
 function sizeDims(c,off){ // 상판 전체 가로/세로 치수선 (y는 위에서 아래로, 상판 바깥쪽)
  const W=c.W,H=c.H,e=off*0.35;
+ if(c.round)return [[[0,H+off],[W,H+off]],[[0,H/2],[0,H+off+e]],[[W,H/2],[W,H+off+e]]];
  return [
   [[0,H+off],[W,H+off]],[[0,H],[0,H+off+e]],[[W,H],[W,H+off+e]],
   [[-off,0],[-off,H]],[[0,0],[-off-e,0]],[[0,H],[-off-e,H]]];
 }
+/* 상판 끝 위치: 사각은 0/W/H, 원형은 그 줄에서 만나는 원 테두리 */
+function edgeL(c,y){if(!c.round)return 0;const R=c.W/2;return R-Math.sqrt(Math.max(0,R*R-(y-R)*(y-R)));}
+function edgeR(c,y){if(!c.round)return c.W;const R=c.W/2;return R+Math.sqrt(Math.max(0,R*R-(y-R)*(y-R)));}
+function edgeT(c,x){if(!c.round)return 0;const R=c.W/2;return R-Math.sqrt(Math.max(0,R*R-(x-R)*(x-R)));}
+function edgeB(c,x){if(!c.round)return c.H;const R=c.W/2;return R+Math.sqrt(Math.max(0,R*R-(x-R)*(x-R)));}
 function dimsFor(c,withLabel){
  const f=v=>String(+(+v).toFixed(1)),L=[],T=[],B=c.items.map(it=>it.ok?bbox(it.pts):null);
  const add=(a,b,t,dir,fr)=>{fr=fr||.5;L.push([a,b]);T.push({x:a[0]+(b[0]-a[0])*fr,y:a[1]+(b[1]-a[1])*fr,t:f(fr===.5?t:Math.round(t*2)/2),dir});};
@@ -401,14 +430,15 @@ function dimsFor(c,withLabel){
   if(it.R){if(it.tabV)ex=[cx-it.R,cx+it.R];else ey=[cy-it.R,cy+it.R];}
   const oth=B.filter((q,j)=>q&&j!==i);
   const blk=(fn)=>oth.some(fn);
-  if(ex[0]>0.5&&!blk(q=>q[2]<=b[0]+0.5&&q[1]<cy&&cy<q[3]))add([0,cy],[ex[0],cy],ex[0],'h');
-  if(c.W-ex[1]>0.5&&!blk(q=>q[0]>=b[2]-0.5&&q[1]<cy&&cy<q[3]))add([ex[1],cy],[c.W,cy],c.W-ex[1],'h');
-  if(ey[0]>0.5&&!blk(q=>q[3]<=b[1]+0.5&&q[0]<cx&&cx<q[2]))add([cx,0],[cx,ey[0]],ey[0],'v');
-  if(c.H-ey[1]>0.5&&!blk(q=>q[1]>=b[3]-0.5&&q[0]<cx&&cx<q[2]))add([cx,ey[1]],[cx,c.H],c.H-ey[1],'v');
+  const eL=edgeL(c,cy),eR=edgeR(c,cy),eT=edgeT(c,cx),eB=edgeB(c,cx);
+  if(ex[0]-eL>0.5&&!blk(q=>q[2]<=b[0]+0.5&&q[1]<cy&&cy<q[3]))add([eL,cy],[ex[0],cy],ex[0]-eL,'h');
+  if(eR-ex[1]>0.5&&!blk(q=>q[0]>=b[2]-0.5&&q[1]<cy&&cy<q[3]))add([ex[1],cy],[eR,cy],eR-ex[1],'h');
+  if(ey[0]-eT>0.5&&!blk(q=>q[3]<=b[1]+0.5&&q[0]<cx&&cx<q[2]))add([cx,eT],[cx,ey[0]],ey[0]-eT,'v');
+  if(eB-ey[1]>0.5&&!blk(q=>q[1]>=b[3]-0.5&&q[0]<cx&&cx<q[2]))add([cx,ey[1]],[cx,eB],eB-ey[1],'v');
   add([ex[0],cy],[ex[1],cy],ex[1]-ex[0],'h',.3);
   add([cx,ey[0]],[cx,ey[1]],ey[1]-ey[0],'v',.2);
   {const td=it.tabDim;if(td){if(td.dir==='v')add(td.a,td.b,td.t,'v',.75);else{L.push([td.a,td.b]);T.push({x:td.a[0]-Math.max(c.W,c.H)*0.025,y:td.a[1],t:f(td.t),dir:'h'});}}}
-  if(withLabel)T.push({x:cx,y:b[3],t:(c.items.length>1?'#'+(i+1)+' ':'')+it.pdfLabel,dir:'b'});
+  if(withLabel)T.push({x:cx,y:b[3],t:(c.items.length>1?'#'+it.no+' ':'')+it.pdfLabel,dir:'b'});
  });
  for(let i=0;i<B.length;i++)for(let j=i+1;j<B.length;j++){
   const a=B[i],b=B[j];if(!a||!b)continue;
@@ -424,15 +454,16 @@ function draw(){
  const c=calc(),W=c.W,H=c.H;
  if(!(W>0&&H>0)){$('sv').innerHTML='';draw2(c);$('msg').textContent=c.msg;$('bDxf').disabled=$('bPdf').disabled=true;return;}
  const mx=80,my=60,aw=740,ah=380,s=Math.min(aw/W,ah/H),pw=W*s,ph=H*s;
- let o=c.rr>0?`<rect class="sv-panel" x="${mx}" y="${my}" width="${pw}" height="${ph}" rx="${c.rr*s}" ry="${c.rr*s}"/>`:`<rect class="sv-panel" x="${mx}" y="${my}" width="${pw}" height="${ph}"/>`;
+ let o=c.round?`<circle class="sv-panel" cx="${mx+pw/2}" cy="${my+ph/2}" r="${pw/2}"/>`:c.rr>0?`<rect class="sv-panel" x="${mx}" y="${my}" width="${pw}" height="${ph}" rx="${c.rr*s}" ry="${c.rr*s}"/>`:`<rect class="sv-panel" x="${mx}" y="${my}" width="${pw}" height="${ph}"/>`;
  const X=v=>mx+v*s,Y=v=>my+v*s,many=c.items.length>1;
+ if(c.round)o+=`<line x1="${X(W/2)-14}" y1="${Y(H/2)}" x2="${X(W/2)+14}" y2="${Y(H/2)}" stroke="#999"/><line x1="${X(W/2)}" y1="${Y(H/2)-14}" x2="${X(W/2)}" y2="${Y(H/2)+14}" stroke="#999"/>`;
  jjSegs(c).forEach(q=>{o+=`<line x1="${X(q[0][0])}" y1="${Y(q[0][1])}" x2="${X(q[1][0])}" y2="${Y(q[1][1])}" stroke="#7a7a7a" stroke-width="1.6" stroke-dasharray="10 6"/>`;});
  if(c.jj>0)o+=`<text x="${X(W)-6}" y="${Y(c.jj)-6}" text-anchor="end" font-size="20" fill="#666">쫄대 ${+c.jj.toFixed(1)}</text>`;
  c.items.forEach((it,i)=>{
   if(!it.ok)return;
-  o+=`<polygon class="sv-hole${i===cur?' cur':''}" points="${it.pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')}"/>`;
+  o+=`<polygon class="sv-hole${i===cur||it.mirOf===cur?' cur':''}${it.mirOf!==undefined?' mir':''}" points="${it.pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')}"/>`;
   if(it.kind==='ros')o+=`<circle class="sv-dot" cx="${X(it.ref[0])}" cy="${Y(it.ref[1])}" r="7"/>`;
-  if(many)o+=`<text class="sv-idx" x="${X(it.cen[0])}" y="${Y(it.cen[1])-(it.kind==='ros'?14:-10)}" text-anchor="middle">${i+1}</text>`;
+  if(many)o+=`<text class="sv-idx" x="${X(it.cen[0])}" y="${Y(it.cen[1])-(it.kind==='ros'?14:-10)}" text-anchor="middle">${it.no}</text>`;
   else o+=`<text class="sv-lab" x="${X(it.lx)}" y="${Y(it.ly)+26}" text-anchor="middle">${it.label}</text>`;
  });
  if($('showDim').checked){
@@ -446,8 +477,8 @@ function draw(){
   rd.segs.forEach(q=>{o+=`<line class="sv-ln" x1="${X(q[0][0])}" y1="${Y(q[0][1])}" x2="${X(q[1][0])}" y2="${Y(q[1][1])}"/>`;
    arrowSegs(q[0],q[1],al2).slice(0,2).forEach(a=>{o+=`<line class="sv-ln" x1="${X(a[0][0])}" y1="${Y(a[0][1])}" x2="${X(a[1][0])}" y2="${Y(a[1][1])}"/>`;});});
   rd.labs.forEach(l=>{o+=`<text class="sv-dm" x="${X(l.x)+(l.dx<0?10:-10)}" y="${Y(l.y)+(l.dy<0?26:-10)}" text-anchor="${l.dx<0?'start':'end'}">${l.t}</text>`;});}
- o+=`<text class="sv-dim" x="${mx+pw/2}" y="${my+ph+36}" text-anchor="middle">${W}</text>`;
- o+=`<text class="sv-dim" x="${mx-12}" y="${my+ph/2}" text-anchor="end">${H}</text>`;
+ o+=`<text class="sv-dim" x="${mx+pw/2}" y="${my+ph+36}" text-anchor="middle">${c.round?'Ø'+W:W}</text>`;
+ if(!c.round)o+=`<text class="sv-dim" x="${mx-12}" y="${my+ph/2}" text-anchor="end">${H}</text>`;
  $('sv').innerHTML=o;
  $('msg').textContent=c.msg;
  $('bDxf').disabled=$('bPdf').disabled=!c.ok;
@@ -465,7 +496,8 @@ function makeDxf(c){
  g(0,'SECTION');g(2,'ENTITIES');
  const line=(l,a,b)=>{g(0,'LINE');g(8,l);g(62,7);g(10,f(a[0]));g(20,f(a[1]));g(30,0);g(11,f(b[0]));g(21,f(b[1]));g(31,0);};
  const W=c.W,H=c.H;
- if(c.rr>0){const r=c.rr,arc=(cx,cy,a0,a1)=>{g(0,'ARC');g(8,'OUTLINE');g(62,7);g(10,f(cx));g(20,f(cy));g(30,0);g(40,f(r));g(50,f(a0));g(51,f(a1));};
+ if(c.round){g(0,'CIRCLE');g(8,'OUTLINE');g(62,7);g(10,f(W/2));g(20,f(H/2));g(30,0);g(40,f(W/2));}
+ else if(c.rr>0){const r=c.rr,arc=(cx,cy,a0,a1)=>{g(0,'ARC');g(8,'OUTLINE');g(62,7);g(10,f(cx));g(20,f(cy));g(30,0);g(40,f(r));g(50,f(a0));g(51,f(a1));};
   line('OUTLINE',[r,0],[W-r,0]);line('OUTLINE',[W,r],[W,H-r]);line('OUTLINE',[W-r,H],[r,H]);line('OUTLINE',[0,H-r],[0,r]);
   arc(r,r,180,270);arc(W-r,r,270,360);arc(W-r,H-r,0,90);arc(r,H-r,90,180);
  }else [[0,0],[W,0],[W,H],[0,H]].forEach((p,i,a)=>line('OUTLINE',p,a[(i+1)%4]));
@@ -478,10 +510,11 @@ function makeDxf(c){
  if(c.jj>0){const th0=Math.max(6,c.W/90);g(0,'TEXT');g(8,'REF');g(62,1);g(10,f(c.W*0.6));g(20,f(Y(c.jj-th0*1.4)));g(30,0);g(40,f(th0));g(1,'JJOLDAE '+(+c.jj.toFixed(1)));}
  {const off=Math.max(c.W,c.H)/22,fs3=Math.max(8,c.W/60),sd=sizeDims(c,off);
   sd.forEach(q=>line('DIM',[q[0][0],Y(q[0][1])],[q[1][0],Y(q[1][1])]));
-  [sd[0],sd[3]].forEach(q=>arrowSegs(q[0],q[1],Math.max(c.W,c.H)/45).forEach(a=>line('DIM',[a[0][0],Y(a[0][1])],[a[1][0],Y(a[1][1])])));
-  const wt=String(+c.W.toFixed(1)),ht=String(+c.H.toFixed(1));
+  [sd[0],sd[3]].filter(Boolean).forEach(q=>arrowSegs(q[0],q[1],Math.max(c.W,c.H)/45).forEach(a=>line('DIM',[a[0][0],Y(a[0][1])],[a[1][0],Y(a[1][1])])));
+  const wt=(c.round?'DIA ':'')+String(+c.W.toFixed(1)),ht=String(+c.H.toFixed(1));
   g(0,'TEXT');g(8,'DIM');g(62,7);g(10,f(c.W/2-wt.length*fs3*0.3));g(20,f(Y(c.H+off+fs3*1.5)));g(30,0);g(40,f(fs3));g(1,wt);
-  g(0,'TEXT');g(8,'DIM');g(62,7);g(10,f(-off-fs3*0.4));g(20,f(Y(c.H/2)-ht.length*fs3*0.3));g(30,0);g(40,f(fs3));g(50,90);g(1,ht);}
+  if(!c.round){g(0,'TEXT');g(8,'DIM');g(62,7);g(10,f(-off-fs3*0.4));g(20,f(Y(c.H/2)-ht.length*fs3*0.3));g(30,0);g(40,f(fs3));g(50,90);g(1,ht);}
+  if(c.round){const k=Math.max(10,c.W/40);line('REF',[c.W/2-k,c.H/2],[c.W/2+k,c.H/2]);line('REF',[c.W/2,c.H/2-k],[c.W/2,c.H/2+k]);}}
  if(c.rr>0&&c.dim){const rd=rrDims(c),fs2=Math.max(6,c.W/90);
   rd.segs.forEach(q=>{line('DIM',[q[0][0],Y(q[0][1])],[q[1][0],Y(q[1][1])]);
    arrowSegs(q[0],q[1],Math.max(c.W,c.H)/90).slice(0,2).forEach(a=>line('DIM',[a[0][0],Y(a[0][1])],[a[1][0],Y(a[1][1])]));});
@@ -506,13 +539,15 @@ function makePdf(c){
  const X=x=>((m+x)*k).toFixed(2),Y=y=>((m+c.H-y)*k).toFixed(2);
  const OFF=32;
  let s='2.4 w\n';
- if(c.rr>0){const r=c.rr,q=0.5523*r,W=c.W,H=c.H,P=(x,y)=>X(x)+' '+Y(y);
+ if(c.round){const r=c.W/2,q=0.5523*r,P=(x,y)=>X(x)+' '+Y(y);
+  s+=`${P(2*r,r)} m ${P(2*r,r+q)} ${P(r+q,2*r)} ${P(r,2*r)} c ${P(r-q,2*r)} ${P(0,r+q)} ${P(0,r)} c ${P(0,r-q)} ${P(r-q,0)} ${P(r,0)} c ${P(r+q,0)} ${P(2*r,r-q)} ${P(2*r,r)} c h S\n`;
+ }else if(c.rr>0){const r=c.rr,q=0.5523*r,W=c.W,H=c.H,P=(x,y)=>X(x)+' '+Y(y);
   s+=`${P(r,0)} m ${P(W-r,0)} l ${P(W-r+q,0)} ${P(W,r-q)} ${P(W,r)} c ${P(W,H-r)} l ${P(W,H-r+q)} ${P(W-r+q,H)} ${P(W-r,H)} c ${P(r,H)} l ${P(r-q,H)} ${P(0,H-r+q)} ${P(0,H-r)} c ${P(0,r)} l ${P(0,r-q)} ${P(r-q,0)} ${P(r,0)} c h S\n`;
  }else s+=`${X(0)} ${Y(c.H)} ${(c.W*k).toFixed(2)} ${(c.H*k).toFixed(2)} re S\n`;
  const T=(x,y,t,sz)=>`BT /F1 ${sz} Tf ${x} ${y} Td (${t}) Tj ET\n`;
  c.items.forEach((it,i)=>{
   s+=it.pts.map((p,j)=>`${X(p[0])} ${Y(p[1])} ${j?'l':'m'}`).join('\n')+'\nh S\n';
-  if(c.items.length>1)s+=T((((m+it.cen[0])*k)-fz*0.3).toFixed(2),(((m+c.H-it.cen[1])*k)-fz*0.3).toFixed(2),String(i+1),fz);
+  if(c.items.length>1)s+=T((((m+it.cen[0])*k)-fz*0.3*it.no.length).toFixed(2),(((m+c.H-it.cen[1])*k)-fz*0.3).toFixed(2),it.no,fz);
  });
  if(c.jj>0){s+='0.5 w 0.4 G [6 4] 0 d\n';jjSegs(c).forEach(q=>{s+=`${X(q[0][0])} ${Y(q[0][1])} m ${X(q[1][0])} ${Y(q[1][1])} l S\n`;});s+='[] 0 d 0 G 2.4 w\n';
   s+=T((((m+c.W*0.6)*k)).toFixed(2),(((m+c.H-c.jj)*k)+2).toFixed(2),'Jjoldae '+(+c.jj.toFixed(1)),Math.max(7,Math.round(fz*0.5)));}
@@ -534,13 +569,13 @@ function makePdf(c){
  {const sd=sizeDims(c,OFF);
   s+='0.3 w 0 G\n';
   sd.forEach(q=>{s+=`${X(q[0][0])} ${Y(q[0][1])} m ${X(q[1][0])} ${Y(q[1][1])} l S\n`;});
-  [sd[0],sd[3]].forEach(q=>arrowSegs(q[0],q[1],4).forEach(a=>{s+=`${X(a[0][0])} ${Y(a[0][1])} m ${X(a[1][0])} ${Y(a[1][1])} l S\n`;}));
+  [sd[0],sd[3]].filter(Boolean).forEach(q=>arrowSegs(q[0],q[1],4).forEach(a=>{s+=`${X(a[0][0])} ${Y(a[0][1])} m ${X(a[1][0])} ${Y(a[1][1])} l S\n`;}));
   s+='2.4 w\n';}
- {const fd=Math.max(9,Math.round(fz*0.6)),wt=String(+c.W.toFixed(1)),ht=String(+c.H.toFixed(1));
+ {const fd=Math.max(9,Math.round(fz*0.6)),wt=(c.round?'DIA ':'')+String(+c.W.toFixed(1)),ht=String(+c.H.toFixed(1));
   s+=T(((m+c.W/2)*k-wt.length*fd*0.28).toFixed(2),((m-OFF)*k-fd*1.05).toFixed(2),wt,fd);
-  s+=`BT /F1 ${fd} Tf 0 1 -1 0 ${((m-OFF-2.5)*k).toFixed(2)} ${((m+c.H/2)*k-ht.length*fd*0.28).toFixed(2)} Tm (${ht}) Tj ET\n`;}
+  if(!c.round)s+=`BT /F1 ${fd} Tf 0 1 -1 0 ${((m-OFF-2.5)*k).toFixed(2)} ${((m+c.H/2)*k-ht.length*fd*0.28).toFixed(2)} Tm (${ht}) Tj ET\n`;}
 
- const note1=c.items.map((it,i)=>(c.items.length>1?'#'+(i+1)+' ':'Hole: ')+it.pdfLabel).join('  |  ');
+ const note1=(c.round?'Round top dia '+c.W+'  /  ':'')+c.items.map((it,i)=>(c.items.length>1?'#'+it.no+' ':'Hole: ')+it.pdfLabel).join('  |  ');
  const note2='Origin: bottom-left, unit mm, A4 fit, approx 1:'+(100/pct).toFixed(1),nz=Math.round(fz*0.6);
  s+=T((30-ox).toFixed(2),(PH-24-oy).toFixed(2),note1+'  /  '+note2,8);
  {const jn=($('jobName').value||'').replace(/[^A-Za-z0-9_.\- ]/g,'').trim().slice(0,40),bx=30-ox,bw=PW-60,bh=nz*2.2,by=26-oy;
@@ -561,7 +596,7 @@ function makePdf(c){
 }
 
 /* ---------- 받기 ---------- */
-function fname(c,ext){return `top_${c.W}x${c.H}_${c.items.length>1?c.items.length+'holes':(holes[0]?holes[0].kind:'nohole')}.${ext}`;}
+function fname(c,ext){return `top_${c.round?'R'+c.W:c.W+'x'+c.H}_${c.items.length>1?c.items.length+'holes':(holes[0]?holes[0].kind:'nohole')}.${ext}`;}
 function save(filename,data){
  const st=$('status');
  try{
@@ -703,6 +738,7 @@ function renderTabs(){
  $('addHole').disabled=holes.length>=MAXH;
  $('curLab').textContent=holes.length>1?'지금 고르는 구멍: 구멍 '+(cur+1)+' (전체 '+holes.length+'개)':(holes.length===0?'구멍이 없습니다. 구멍이 필요하면 "구멍 추가"를 눌러 주십시오.':'');
  $('h3').textContent=holes.length>1?'구멍 위치 (구멍 '+(cur+1)+')':'구멍 위치';
+ [...t.children].forEach((b,i)=>{if(holes[i]&&holes[i].mir)b.textContent+=' + 대칭';});
 }
 function show(){
  const h=HC();
@@ -726,6 +762,7 @@ function show(){
  document.querySelectorAll('#kinds button').forEach(b=>b.classList.toggle('on',b.dataset.k===h.kind));
  document.querySelectorAll('#poss button').forEach(b=>b.classList.toggle('on',b.dataset.p===h.pos));
  document.querySelectorAll('#refs button').forEach(b=>b.classList.toggle('on',b.dataset.r===h.ref));
+ $('mirNote').textContent=(h.mir&&h.pos==='center')?'정중앙 구멍은 대칭 자리가 같아서 대칭 구멍을 만들지 않습니다. "직접 입력"으로 한쪽 위치를 넣어 주십시오.':'';
  draw();
  if(h.kind==='ros'){const t=(+h.tw)-(+h.rd);$('twHint').textContent=t>0?'돌출부 길이는 자동 계산: '+t+' mm':'';}
 }
@@ -783,6 +820,12 @@ $('delHole').onclick=()=>{
  holes.splice(cur,1);cur=Math.max(0,cur-1);show();
 };
 $('showDim').addEventListener('change',draw);
+$('mir').addEventListener('change',()=>{readUI();show();});
+function setShape(s){SHAPE=s;const r=s==='round';
+ document.querySelectorAll('#shapes button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));
+ document.querySelectorAll('.rectOnly').forEach(e=>e.style.display=r?'none':'');
+ $('lW').textContent=r?'지름':'가로';$('opts').style.display=r?'none':'';draw();}
+document.querySelectorAll('#shapes button').forEach(b=>b.onclick=()=>setShape(b.dataset.s));
 [['oRound','rRound'],['oJul','rJul']].forEach(([a,b])=>$(a).addEventListener('change',()=>{$(b).hidden=!$(a).checked;{const u=[];if($('oRound').checked)u.push('모서리 둥글게');if($('oJul').checked)u.push('쫄대');$('optsSum').textContent=u.length?'추가 옵션 ('+u.join(', ')+' 사용 중)':'추가 옵션 보기 (모서리 둥글게, 쫄대)';}draw();}));
 $('jm').addEventListener('change',draw);
 $('W').addEventListener('input',draw);$('H').addEventListener('input',draw);

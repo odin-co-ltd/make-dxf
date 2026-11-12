@@ -99,7 +99,12 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
  <div class="row"><label for="dia">지름</label><input id="dia" type="number" inputmode="decimal" value="260"><span>mm</span></div></div>
 <div id="f-rect" hidden>
  <div class="row"><label for="hw">구멍 가로</label><input id="hw" type="number" inputmode="decimal" value="143"><span>mm</span></div>
- <div class="row"><label for="hh">구멍 세로</label><input id="hh" type="number" inputmode="decimal" value="61"><span>mm</span></div></div>
+ <div class="row"><label for="hh">구멍 세로</label><input id="hh" type="number" inputmode="decimal" value="61"><span>mm</span></div>
+ <details id="hOpts" style="margin-top:6px"><summary id="hOptsSum" style="cursor:pointer;font-size:13px;color:#8a6a4a">추가 옵션 보기 (구멍 모서리 둥글게)</summary>
+ <label style="display:block;margin:6px 0"><input type="checkbox" id="hRound"> 구멍 네 모서리 둥글게 (귀돌리기)</label>
+ <div class="row" id="rHr" hidden><label for="hr">모서리 반지름</label><input id="hr" type="number" inputmode="decimal" value="10"><span>mm</span></div>
+ <div id="hrNote" class="small" style="color:#b0461f"></div>
+ </details></div>
 <div id="f-ros">
  <div class="row"><label for="maker">1단계 제조사</label>
   <select id="maker"></select></div>
@@ -253,7 +258,7 @@ function fillModels(sel,mk){
  if(sel!==undefined)$('model').value=sel;
 }
 const MAXH=20;
-const newHole=()=>({kind:'ros',dia:'260',hw:'143',hh:'61',rd:'330',tw:'465',th:'108',model:'0',dir:'left',ref:'c',pos:'center',hx:'600',hy:'400'});
+const newHole=()=>({kind:'ros',dia:'260',hw:'143',hh:'61',hro:false,hr:'10',rd:'330',tw:'465',th:'108',model:'0',dir:'left',ref:'c',pos:'center',hx:'600',hy:'400'});
 let holes=[newHole()],cur=0,SHAPE='rect';
 const HC=()=>holes[cur];
 
@@ -263,13 +268,15 @@ function readUI(){
  const h=HC();if(!h)return;
  h.dia=$('dia').value;h.hw=$('hw').value;h.hh=$('hh').value;
  h.rd=$('rd').value;h.tw=$('tw').value;h.th=$('th').value;h.model=$('model').value;h.maker=$('maker').value;
- h.hx=$('hx').value;h.hy=$('hy').value;h.mir=$('mir').checked;
+ h.hx=$('hx').value;h.hy=$('hy').value;h.mir=$('mir').checked;h.hro=$('hRound').checked;h.hr=$('hr').value;
 }
 function writeUI(){
  const h=HC();if(!h)return;
  $('dia').value=h.dia;$('hw').value=h.hw;$('hh').value=h.hh;
  $('rd').value=h.rd;$('tw').value=h.tw;$('th').value=h.th;fillModels(h.model,h.maker||undefined);
  $('hx').value=h.hx;$('hy').value=h.hy;$('mir').checked=!!h.mir;
+ $('hRound').checked=!!h.hro;$('hr').value=h.hr===undefined?'10':h.hr;$('rHr').hidden=!h.hro;
+ $('hOptsSum').textContent=h.hro?'추가 옵션 (구멍 모서리 둥글게 사용 중)':'추가 옵션 보기 (구멍 모서리 둥글게)';if(h.hro)$('hOpts').open=true;
 }
 
 /* ---------- 계산: 화면 좌표(왼쪽 위가 0,0, 아래로 +) ---------- */
@@ -331,8 +338,20 @@ function calcHole(h,W,H){
   for(let i=0;i<120;i++){const f=2*Math.PI*i/120;pts.push([cx+hw/2*Math.cos(f),cy+hw/2*Math.sin(f)]);}
   r.pts=pts;r.ents=[{t:'C',c:[cx,cy],r:hw/2}];r.label='Ø'+hw;r.pdfLabel='dia '+hw;
  }else{
+  const rr=h.hro?Math.max(0,Math.min(+h.hr||0,Math.min(hw,hh)/2)):0;
+  if(rr>0){
+   /* 귀돌리기: 네 모서리를 반지름 rr 원호로 (화면 좌표는 아래가 +, DXF 각도는 위가 + 기준) */
+   const C=[[hx+hw-rr,hy+rr,-90,0],[hx+hw-rr,hy+hh-rr,0,90],[hx+rr,hy+hh-rr,90,180],[hx+rr,hy+rr,180,270]],pts=[];
+   C.forEach(q=>{for(let i=0;i<=12;i++){const f=(q[2]+(q[3]-q[2])*i/12)*Math.PI/180;pts.push([q[0]+rr*Math.cos(f),q[1]+rr*Math.sin(f)]);}});
+   const ents=[],ln=(a,b)=>{if(Math.hypot(a[0]-b[0],a[1]-b[1])>0.001)ents.push({t:'L',a,b});};
+   ln([hx+rr,hy],[hx+hw-rr,hy]);ln([hx+hw,hy+rr],[hx+hw,hy+hh-rr]);ln([hx+hw-rr,hy+hh],[hx+rr,hy+hh]);ln([hx,hy+hh-rr],[hx,hy+rr]);
+   ents.push({t:'A',c:[hx+hw-rr,hy+rr],r:rr,a0:0,a1:90},{t:'A',c:[hx+rr,hy+rr],r:rr,a0:90,a1:180},{t:'A',c:[hx+rr,hy+hh-rr],r:rr,a0:180,a1:270},{t:'A',c:[hx+hw-rr,hy+hh-rr],r:rr,a0:270,a1:360});
+   const rt=String(+rr.toFixed(1));
+   r.pts=pts;r.ents=ents;r.label=hw+' x '+hh+' (R'+rt+')';r.pdfLabel=hw+' x '+hh+' R'+rt;r.hr=rr;
+  }else{
   const pts=[[hx,hy],[hx+hw,hy],[hx+hw,hy+hh],[hx,hy+hh]];
   r.pts=pts;r.ents=pts.map((p,i)=>({t:'L',a:p,b:pts[(i+1)%4]}));r.label=hw+' x '+hh;r.pdfLabel=hw+' x '+hh;
+  }
  }
  return r;
 }
@@ -762,6 +781,7 @@ function show(){
  document.querySelectorAll('#kinds button').forEach(b=>b.classList.toggle('on',b.dataset.k===h.kind));
  document.querySelectorAll('#poss button').forEach(b=>b.classList.toggle('on',b.dataset.p===h.pos));
  document.querySelectorAll('#refs button').forEach(b=>b.classList.toggle('on',b.dataset.r===h.ref));
+ {const lim=Math.min(+h.hw||0,+h.hh||0)/2;$('hrNote').textContent=(h.kind==='rect'&&h.hro&&(+h.hr)>lim&&lim>0)?'반지름이 구멍 짧은 쪽의 절반('+lim+'mm)보다 커서 '+lim+'mm로 그립니다.':'';}
  $('mirNote').textContent=(h.mir&&h.pos==='center')?'정중앙 구멍은 대칭 자리가 같아서 대칭 구멍을 만들지 않습니다. "직접 입력"으로 한쪽 위치를 넣어 주십시오.':'';
  draw();
  if(h.kind==='ros'){const t=(+h.tw)-(+h.rd);$('twHint').textContent=t>0?'돌출부 길이는 자동 계산: '+t+' mm':'';}
@@ -821,6 +841,7 @@ $('delHole').onclick=()=>{
 };
 $('showDim').addEventListener('change',draw);
 $('mir').addEventListener('change',()=>{readUI();show();});
+$('hRound').addEventListener('change',()=>{readUI();show();});
 function setShape(s){SHAPE=s;const r=s==='round';
  document.querySelectorAll('#shapes button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));
  document.querySelectorAll('.rectOnly').forEach(e=>e.style.display=r?'none':'');

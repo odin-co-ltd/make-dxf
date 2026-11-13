@@ -33,6 +33,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
 .sv-hole{fill:var(--hole);stroke:var(--title);stroke-width:3}
 .sv-hole.cur{stroke:var(--dot);stroke-width:5}
 .sv-hole.mir{stroke-dasharray:10 6}
+#holeTabs .mirtab{border-style:dashed}
 .sv-idx{fill:var(--ink);font-size:34px;font-weight:bold}
 .sv-dot{fill:var(--dot)}
 .sv-dim{fill:var(--ink);font-size:31px}
@@ -144,7 +145,7 @@ svg{width:100%;height:auto;background:var(--field);border:1px solid var(--line);
  <div class="row"><label id="ly" for="hy">상판 위쪽 끝에서 기준점까지</label><input id="hy" type="number" inputmode="decimal" value="400"><span>mm</span></div></div>
 <div id="f-center" class="small ink">정중앙은 기준점이 상판의 정가운데에 옵니다.</div>
 <div id="roundNote" class="small ink" hidden>원형 상판은 지름 x 지름 정사각형(미리보기의 점선)을 기준으로 위치를 잽니다. 왼쪽 끝 = 정사각형 왼쪽 선, 위쪽 끝 = 정사각형 위쪽 선입니다.</div>
-<label style="display:block;margin:10px 0 2px;padding:8px;border:1px dashed var(--line);border-radius:8px"><input type="checkbox" id="mir"> 좌우 대칭 구멍 자동으로 만들기<br><span class="small ink">이 구멍을 상판 가운데 세로선 기준으로 거울처럼 뒤집어 반대쪽에 하나 더 만듭니다. 이 구멍을 고치면 반대쪽도 같이 바뀝니다.</span></label>
+<label style="display:block;margin:10px 0 2px;padding:8px;border:1px dashed var(--line);border-radius:8px"><input type="checkbox" id="mir"> 좌우 대칭 구멍 자동으로 만들기<br><span class="small ink">이 구멍을 상판 가운데 세로선 기준으로 거울처럼 뒤집어 반대쪽에 하나 더 만듭니다. 이 구멍을 고치면 반대쪽도 같이 바뀝니다. 반대쪽만 따로 고치려면 위 2번 카드의 "(대칭)" 구멍 버튼을 누르십시오.</span></label>
 <div id="mirNote" class="small" style="color:#b0461f"></div>
 </div>
 
@@ -381,14 +382,15 @@ function calc(){
  const c={W,H,round,items:[],ok:false,msg:''};
  if(!(W>0&&H>0)){c.msg=round?'원형 상판 지름을 넣어 주십시오.':'상판 가로와 세로를 넣어 주십시오.';return c;}
  c.items=holes.map((h,i)=>Object.assign(calcHole(h,W,H),{no:String(i+1)}));
+ let mk=holes.length;
  holes.forEach((h,i)=>{if(!h.mir)return;const mh=mirrorHole(h,W);if(!mh)return;
-  const it=calcHole(mh,W,H);it.no=(i+1)+"'";it.mirOf=i;
+  const it=calcHole(mh,W,H);it.mirOf=i;
   if(it.ok&&c.items[i].ok&&Math.abs(it.cen[0]-c.items[i].cen[0])<0.01&&Math.abs(it.cen[1]-c.items[i].cen[1])<0.01)return; /* 가운데에 있어 같은 자리 */
-  c.items.push(it);});
+  it.no=String(++mk);c.items.push(it);});
  /* 원형 상판: 구멍이 원 밖으로 나가는지 */
  if(round){const R=W/2;c.items.forEach(it=>{if(it.ok&&it.pts.some(p=>Math.hypot(p[0]-R,p[1]-R)>R+0.01)){it.ok=false;it.why='원형 상판 밖으로 나갑니다';}});}
  const m=[];
- c.items.forEach((it,i)=>{if(!it.ok)m.push(it.no+'번 구멍'+(it.mirOf!==undefined?'(대칭)':'')+': '+it.why);});
+ c.items.forEach((it,i)=>{if(!it.ok)m.push(it.no+'번 구멍'+(it.mirOf!==undefined?'('+(it.mirOf+1)+'번 대칭)':'')+': '+it.why);});
  for(let i=0;i<c.items.length;i++)for(let j=i+1;j<c.items.length;j++)
   if(c.items[i].ok&&c.items[j].ok&&overlap(c.items[i].pts,c.items[j].pts))m.push(c.items[i].no+'번 구멍과 '+c.items[j].no+'번 구멍이 겹칩니다');
  c.rr=(!round&&$('oRound').checked)?Math.max(0,Math.min(+$('rr').value||0,Math.min(W,H)/2)):0;
@@ -748,6 +750,16 @@ function applyRot(){
 $('rotBtn').onclick=()=>{rot=(rot+90)%360;applyRot();};
 
 /* ---------- 화면 ---------- */
+/* 대칭 구멍을 따로 고칠 수 있게: 지금 있는 대칭 구멍 전부를 같은 번호의 보통 구멍으로 바꿈 (번호가 바뀌지 않도록 한꺼번에) */
+function detachMirrors(sel){
+ readUI();const W=+$('W').value,c=calc(),ms=c.items.filter(it=>it.mirOf!==undefined);
+ if(!ms.length)return;
+ if(holes.length+ms.length>MAXH){alert('구멍은 최대 '+MAXH+'개까지라 대칭 구멍을 따로 떼어 낼 수 없습니다.');return;}
+ const add=ms.map(it=>Object.assign(mirrorHole(holes[it.mirOf],W),{mir:false}));
+ ms.forEach(it=>{holes[it.mirOf].mir=false;});
+ holes.push(...add);cur=Math.min(sel,holes.length-1);show();
+ $('mirNote').textContent='대칭 구멍을 따로 고칠 수 있는 보통 구멍(구멍 '+(holes.length-add.length+1)+(add.length>1?'~'+holes.length:'')+')으로 바꿨습니다. 이제 원래 구멍을 고쳐도 같이 바뀌지 않습니다.';
+}
 function renderTabs(){
  const t=$('holeTabs');t.innerHTML='';
  holes.forEach((h,i)=>{
@@ -756,11 +768,14 @@ function renderTabs(){
   b.onclick=()=>{readUI();cur=i;show();};
   t.appendChild(b);
  });
+ calc().items.forEach(it=>{if(it.mirOf===undefined)return;
+  const b=document.createElement('button');b.type='button';b.className='mirtab';
+  b.textContent='구멍 '+it.no+' ('+(it.mirOf+1)+'번 대칭)';b.title='누르면 이 대칭 구멍을 따로 고칠 수 있게 됩니다';
+  b.onclick=()=>detachMirrors(+it.no-1);t.appendChild(b);});
  $('delHole').disabled=holes.length<1;
  $('addHole').disabled=holes.length>=MAXH;
  $('curLab').textContent=holes.length>1?'지금 고르는 구멍: 구멍 '+(cur+1)+' (전체 '+holes.length+'개)':(holes.length===0?'구멍이 없습니다. 구멍이 필요하면 "구멍 추가"를 눌러 주십시오.':'');
  $('h3').textContent=holes.length>1?'구멍 위치 (구멍 '+(cur+1)+')':'구멍 위치';
- [...t.children].forEach((b,i)=>{if(holes[i]&&holes[i].mir)b.textContent+=' + 대칭';});
 }
 function show(){
  const h=HC();

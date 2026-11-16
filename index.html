@@ -397,6 +397,8 @@ function calc(){
  c.rr=(!round&&$('oRound').checked)?Math.max(0,Math.min(+$('rr').value||0,Math.min(W,H)/2)):0;
  c.jj=(!round&&$('oJul').checked)?Math.max(0,Math.min(+$('jw').value||0,Math.min(W,H)/2-1)):0;
  c.jm=$('jm').value;
+ c.items.forEach(it=>{if(!it.ok)return;const b=bbox(it.pts);const g=Math.min(b[0],b[1],W-b[2],H-b[3]);
+  if(g<20)(c.warn=c.warn||[]).push(it.no+'번 구멍이 상판 끝에서 '+(+g.toFixed(1))+'mm밖에 안 떨어져 있습니다');});
  c.msg=m.join(' / ');c.ok=m.length===0;c.wmsg=(c.warn||[]).join(' / ');c.dim=$('showDim').checked;
  return c;
 }
@@ -461,6 +463,21 @@ function dimsFor(c,withLabel){
   add([ex[0],cy],[ex[1],cy],ex[1]-ex[0],'h',.3);
   add([cx,ey[0]],[cx,ey[1]],ey[1]-ey[0],'v',.2);
   {const td=it.tabDim;if(td){if(td.dir==='v')add(td.a,td.b,td.t,'v',.75);else{L.push([td.a,td.b]);T.push({x:td.a[0]-Math.max(c.W,c.H)*0.025,y:td.a[1],t:f(td.t),dir:'h'});}}}
+  if(it.R){
+   const has=(a,b)=>L.some(l=>Math.hypot(l[0][0]-a[0],l[0][1]-a[1])<0.5&&Math.hypot(l[1][0]-b[0],l[1][1]-b[1])<0.5);
+   const rx=it.ref[0],ry=it.ref[1];
+   /* 입력한 기준점 위치를 그대로 보여 주는 치수 (상판 끝 → 기준점) */
+   if(ry>0.5&&!has([cx,eT],[cx,ry])&&!has([rx,0],[rx,ry]))add([rx,0],[rx,ry],ry,'v',.5);
+   if(rx>0.5&&!has([0,ry],[rx,ry])&&!(Math.abs(ry-cy)<0.5&&Math.abs(ex[0]-rx)<0.5))add([0,ry],[rx,ry],rx,'h',.5);
+   /* 돌출부가 원보다 두꺼우면 돌출부 끝까지의 거리도 표시 */
+   const td=it.tabDim;
+   if(td&&td.t>2*it.R+0.5){
+    if(!it.tabV){const x=td.a[0],y0=Math.min(td.a[1],td.b[1]),y1=Math.max(td.a[1],td.b[1]);
+     if(y0>0.5)add([x,0],[x,y0],y0,'v');if(c.H-y1>0.5)add([x,y1],[x,c.H],c.H-y1,'v');}
+    else{const y=td.a[1],x0=Math.min(td.a[0],td.b[0]),x1=Math.max(td.a[0],td.b[0]);
+     if(x0>0.5)add([0,y],[x0,y],x0,'h');if(c.W-x1>0.5)add([x1,y],[c.W,y],c.W-x1,'h');}
+   }
+  }
   if(withLabel)T.push({x:cx,y:b[3],t:(c.items.length>1?'#'+it.no+' ':'')+it.pdfLabel,dir:'b'});
  });
  for(let i=0;i<B.length;i++)for(let j=i+1;j<B.length;j++){
